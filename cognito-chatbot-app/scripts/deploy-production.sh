@@ -16,8 +16,12 @@ if [ "$confirm" != "yes" ]; then
     exit 0
 fi
 
-# Set environment
+# Set environment and region
 export AMPLIFY_ENV=production
+export AWS_REGION=eu-west-1
+export NEXT_PUBLIC_AWS_REGION=eu-west-1
+
+echo "🌍 AWS Region: $AWS_REGION"
 
 # Check if AWS CLI is configured
 if ! command -v aws &> /dev/null; then
@@ -71,9 +75,9 @@ npm run lint || {
 echo "🏗️  Building Next.js application..."
 npm run build
 
-# Deploy backend with Amplify
-echo "☁️  Deploying backend to AWS..."
-npx ampx pipeline-deploy --branch production --app-id ${AWS_APP_ID:-production}
+# Deploy backend with Amplify to eu-west-1
+echo "☁️  Deploying backend to AWS (eu-west-1)..."
+npx ampx pipeline-deploy --branch production --app-id ${AWS_APP_ID:-production} --region eu-west-1
 
 # Get the deployed API endpoint
 echo "📋 Retrieving deployment information..."

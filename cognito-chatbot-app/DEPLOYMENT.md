@@ -17,6 +17,19 @@ The application supports three environments:
 2. **Staging** (`staging`) - Pre-production testing environment
 3. **Production** (`production`) - Live production environment
 
+### AWS Region
+
+**All environments are deployed to eu-west-1 (Ireland) region** for:
+- GDPR compliance and data residency requirements
+- Lower latency for European users
+- Bedrock model availability in EU region
+
+The region is configured in:
+- Deployment scripts (automatically set to eu-west-1)
+- Backend configuration (`amplify/backend.ts`)
+- Lambda environment variables
+- Bedrock ARN references
+
 ### Environment Variables
 
 Copy `.env.example` to `.env.local` and configure:
@@ -26,7 +39,8 @@ cp .env.example .env.local
 ```
 
 Update the following variables:
-- `NEXT_PUBLIC_AWS_REGION` - AWS region for deployment
+- `NEXT_PUBLIC_AWS_REGION` - AWS region (set to `eu-west-1`)
+- `AWS_REGION` - AWS region (set to `eu-west-1`)
 - `AMPLIFY_ENV` - Environment name (dev/staging/production)
 
 ## Local Development Setup
@@ -65,14 +79,19 @@ npm run dev
 
 ### Amplify Sandbox
 
-The Amplify sandbox provides a personal cloud development environment:
+The Amplify sandbox provides a personal cloud development environment in eu-west-1:
 
 ```bash
-npx ampx sandbox
+npm run amplify:sandbox
+```
+
+Or manually with region set:
+```bash
+AWS_REGION=eu-west-1 NEXT_PUBLIC_AWS_REGION=eu-west-1 npx ampx sandbox
 ```
 
 Features:
-- Automatic deployment of backend changes
+- Automatic deployment of backend changes to eu-west-1
 - Isolated resources per developer
 - Real-time updates
 - No impact on shared environments
@@ -89,10 +108,12 @@ Or manually:
 
 ```bash
 export AMPLIFY_ENV=staging
+export AWS_REGION=eu-west-1
+export NEXT_PUBLIC_AWS_REGION=eu-west-1
 npm ci
 npm run lint
 npm run build
-npx ampx pipeline-deploy --branch staging --app-id $AWS_APP_ID
+npx ampx pipeline-deploy --branch staging --app-id $AWS_APP_ID --region eu-west-1
 ```
 
 ### Staging Environment Setup
@@ -125,10 +146,12 @@ Or manually:
 
 ```bash
 export AMPLIFY_ENV=production
+export AWS_REGION=eu-west-1
+export NEXT_PUBLIC_AWS_REGION=eu-west-1
 npm ci
 npm run lint
 npm run build
-npx ampx pipeline-deploy --branch production --app-id $AWS_APP_ID
+npx ampx pipeline-deploy --branch production --app-id $AWS_APP_ID --region eu-west-1
 ```
 
 ### Production Deployment Checklist

@@ -1,0 +1,162 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.signupBox {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 450px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.input {
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.hint {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+}
+
+.button {
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  padding: 12px 16px;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  color: #c33;
+  font-size: 14px;
+  text-align: center;
+}
+
+.links {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.linkButton:hover:not(:disabled) {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.separator {
+  color: #ccc;
+}
+
+@media (max-width: 480px) {
+  .signupBox {
+    padding: 30px 20px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+}

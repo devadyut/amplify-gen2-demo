@@ -9,7 +9,8 @@ import { CognitoJwtVerifier } from 'aws-jwt-verify';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
-const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
+// Use BEDROCK_REGION for Bedrock client, AWS_REGION is automatically set by Lambda runtime
+const bedrockClient = new BedrockRuntimeClient({ region: process.env.BEDROCK_REGION || process.env.AWS_REGION || 'eu-west-1' });
 
 // Environment variables
 const BUCKET_NAME = process.env.KNOWLEDGE_BASE_BUCKET;

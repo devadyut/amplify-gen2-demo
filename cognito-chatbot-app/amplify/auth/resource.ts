@@ -1,4 +1,5 @@
 import { defineAuth } from '@aws-amplify/backend';
+import { postConfirmationFunction } from '../functions/post-confirmation/resource';
 
 /**
  * Define and configure your auth resource with custom attributes for ABAC
@@ -22,7 +23,9 @@ export const auth = defineAuth({
   },
   accountRecovery: 'EMAIL_ONLY',
   multifactor: {
-    mode: 'OPTIONAL',
-    sms: true,
+    mode: 'OFF',
+  },
+  triggers: {
+    postConfirmation: postConfirmationFunction,
   },
 });

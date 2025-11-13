@@ -47,3 +47,6 @@ amplify/node_modules/
 amplify/.amplify-hosting/
 .amplify-hosting/
 amplify_outputs.json
+/amplify/functions/admin/node_modules/
+/amplify/functions/chatbot/node_modules/
+/amplify/functions/post-confirmation/node_modules/

@@ -105,7 +105,7 @@ export function getEnvironmentConfig(): EnvironmentConfig {
         idToken: parseInt(process.env.ID_TOKEN_VALIDITY || '60'),
         refreshToken: parseInt(process.env.REFRESH_TOKEN_VALIDITY || '30'),
       },
-      mfaConfiguration: (process.env.MFA_CONFIGURATION as 'OFF' | 'OPTIONAL' | 'ON') || 'OPTIONAL',
+      mfaConfiguration: (process.env.MFA_CONFIGURATION as 'OFF' | 'OPTIONAL' | 'ON') || 'OFF',
     },
     
     monitoring: {

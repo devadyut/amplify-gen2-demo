@@ -5,7 +5,12 @@
 
 set -e
 
+# Set AWS region to eu-west-1
+export AWS_REGION=eu-west-1
+export NEXT_PUBLIC_AWS_REGION=eu-west-1
+
 echo "🚀 Setting up local development environment..."
+echo "🌍 AWS Region: $AWS_REGION"
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
@@ -53,7 +58,9 @@ echo "✅ Local development environment setup complete!"
 echo ""
 echo "Next steps:"
 echo "1. Update .env.local with your AWS configuration"
-echo "2. Run 'npx ampx sandbox' to start the Amplify sandbox"
+echo "2. Run 'AWS_REGION=eu-west-1 npx ampx sandbox' to start the Amplify sandbox"
 echo "3. In another terminal, run 'npm run dev' to start the Next.js dev server"
 echo "4. Open http://localhost:3000 in your browser"
+echo ""
+echo "Note: All resources will be deployed to eu-west-1 (Ireland) region"
 echo ""

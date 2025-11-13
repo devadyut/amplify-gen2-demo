@@ -7,8 +7,12 @@ set -e
 
 echo "🚀 Deploying to staging environment..."
 
-# Set environment
+# Set environment and region
 export AMPLIFY_ENV=staging
+export AWS_REGION=eu-west-1
+export NEXT_PUBLIC_AWS_REGION=eu-west-1
+
+echo "🌍 AWS Region: $AWS_REGION"
 
 # Check if AWS CLI is configured
 if ! command -v aws &> /dev/null; then
@@ -41,9 +45,9 @@ npm run lint || {
 echo "🏗️  Building Next.js application..."
 npm run build
 
-# Deploy backend with Amplify
-echo "☁️  Deploying backend to AWS..."
-npx ampx pipeline-deploy --branch staging --app-id ${AWS_APP_ID:-staging}
+# Deploy backend with Amplify to eu-west-1
+echo "☁️  Deploying backend to AWS (eu-west-1)..."
+npx ampx pipeline-deploy --branch staging --app-id ${AWS_APP_ID:-staging} --region eu-west-1
 
 # Get the deployed API endpoint
 echo "📋 Retrieving deployment information..."

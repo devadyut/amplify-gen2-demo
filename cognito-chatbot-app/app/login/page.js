@@ -204,7 +204,10 @@ export default function LoginPage() {
         
         <div className={styles.loginFooter}>
           <p className={styles.helpText}>
-            Need help? Contact your administrator
+            Don't have an account?{' '}
+            <a href="/signup" className={styles.signupLink}>
+              Sign up
+            </a>
           </p>
         </div>
       </div>

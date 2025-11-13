@@ -1,4 +1,4 @@
-import { Stack } from 'aws-cdk-lib';
+import { Stack, Duration } from 'aws-cdk-lib';
 import { 
   RestApi, 
   LambdaIntegration, 
@@ -8,6 +8,7 @@ import {
   ThrottleSettings,
   MethodLoggingLevel,
   EndpointType,
+  RequestValidator,
 } from 'aws-cdk-lib/aws-apigateway';
 import { IUserPool } from 'aws-cdk-lib/aws-cognito';
 import { IFunction } from 'aws-cdk-lib/aws-lambda';
@@ -41,18 +42,24 @@ export function createRestApi(
       ];
   
   // Create REST API with CORS configuration
-  const api = new RestApi(stack, 'ChatbotRestApi', {
+  const api: RestApi = new RestApi(stack, 'ChatbotRestApi', {
     restApiName: 'Chatbot REST API',
     description: 'REST API for chatbot and admin operations with Cognito authorization',
     endpointTypes: [EndpointType.REGIONAL],
     deployOptions: {
-      stageName: 'prod',
+      stageName: environment,
       throttlingRateLimit: isProduction ? 1000 : 100, // requests per second
       throttlingBurstLimit: isProduction ? 2000 : 200, // burst capacity
       metricsEnabled: true,
       loggingLevel: MethodLoggingLevel.INFO,
       dataTraceEnabled: !isProduction, // Disable in production for performance
       tracingEnabled: isProduction, // Enable X-Ray tracing in production
+      methodOptions: {
+        '/*/*': {
+          throttlingRateLimit: isProduction ? 1000 : 100,
+          throttlingBurstLimit: isProduction ? 2000 : 200,
+        },
+      },
     },
     defaultCorsPreflightOptions: {
       allowOrigins: allowedOrigins,
@@ -66,20 +73,9 @@ export function createRestApi(
         'X-Requested-With',
       ],
       allowCredentials: true,
-      maxAge: 3600, // Cache preflight response for 1 hour
+      maxAge: Duration.hours(1), // Cache preflight response for 1 hour
     },
-    // Security settings
     cloudWatchRole: true, // Enable CloudWatch logging
-    deployOptions: {
-      ...api.deployOptions,
-      // Add custom headers for security
-      methodOptions: {
-        '/*/*': {
-          throttlingRateLimit: isProduction ? 1000 : 100,
-          throttlingBurstLimit: isProduction ? 2000 : 200,
-        },
-      },
-    },
   });
 
   // Create Cognito authorizer
@@ -87,6 +83,19 @@ export function createRestApi(
     cognitoUserPools: [userPool],
     authorizerName: 'CognitoUserPoolAuthorizer',
     identitySource: 'method.request.header.Authorization',
+  });
+
+  // Create request validators
+  const bodyAndParamsValidator = new RequestValidator(stack, 'BodyAndParamsValidator', {
+    restApi: api,
+    validateRequestBody: true,
+    validateRequestParameters: true,
+  });
+
+  const paramsOnlyValidator = new RequestValidator(stack, 'ParamsOnlyValidator', {
+    restApi: api,
+    validateRequestBody: false,
+    validateRequestParameters: true,
   });
 
   // Create Lambda integrations
@@ -110,10 +119,7 @@ export function createRestApi(
     requestParameters: {
       'method.request.header.Authorization': true,
     },
-    requestValidatorOptions: {
-      validateRequestBody: true,
-      validateRequestParameters: true,
-    },
+    requestValidator: bodyAndParamsValidator,
     methodResponses: [
       {
         statusCode: '200',
@@ -153,9 +159,7 @@ export function createRestApi(
     requestParameters: {
       'method.request.header.Authorization': true,
     },
-    requestValidatorOptions: {
-      validateRequestParameters: true,
-    },
+    requestValidator: paramsOnlyValidator,
     methodResponses: [
       {
         statusCode: '200',
@@ -194,9 +198,7 @@ export function createRestApi(
     requestParameters: {
       'method.request.header.Authorization': true,
     },
-    requestValidatorOptions: {
-      validateRequestParameters: true,
-    },
+    requestValidator: paramsOnlyValidator,
     methodResponses: [
       {
         statusCode: '200',

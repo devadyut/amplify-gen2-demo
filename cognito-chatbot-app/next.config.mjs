@@ -41,9 +41,6 @@ const nextConfig = {
     } : false,
   },
   
-  // Production optimizations
-  swcMinify: true,
-  
   // Experimental features
   experimental: {
     // Enable optimized package imports
@@ -104,19 +101,6 @@ const nextConfig = {
         permanent: true,
       },
     ];
-  },
-  
-  // Environment-specific webpack configuration
-  webpack: (config, { dev, isServer }) => {
-    // Production optimizations
-    if (!dev && !isServer) {
-      config.optimization = {
-        ...config.optimization,
-        moduleIds: 'deterministic',
-      };
-    }
-    
-    return config;
   },
   
   // Logging configuration

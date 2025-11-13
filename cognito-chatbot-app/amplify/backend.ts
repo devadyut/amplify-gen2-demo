@@ -46,7 +46,7 @@ if (cfnUserPool) {
   cfnUserPool.emailVerificationMessage = 'Your verification code is {####}';
   cfnUserPool.emailVerificationSubject = 'Verify your email for Cognito Chatbot App';
   cfnUserPool.autoVerifiedAttributes = ['email'];
-  
+
   // Configure account recovery
   cfnUserPool.accountRecoverySetting = {
     recoveryMechanisms: [
@@ -58,8 +58,13 @@ if (cfnUserPool) {
   };
 
   // Configure MFA settings from environment config
-  cfnUserPool.mfaConfiguration = envConfig.cognito.mfaConfiguration;
-  cfnUserPool.enabledMfas = ['SOFTWARE_TOKEN_MFA'];
+  // Only enable SOFTWARE_TOKEN_MFA if MFA is not OFF
+  if (envConfig.cognito.mfaConfiguration !== 'OFF') {
+    cfnUserPool.mfaConfiguration = envConfig.cognito.mfaConfiguration;
+    cfnUserPool.enabledMfas = ['SOFTWARE_TOKEN_MFA'];
+  } else {
+    cfnUserPool.mfaConfiguration = 'OFF';
+  }
 }
 
 // Configure app client to read custom attributes
@@ -70,7 +75,7 @@ if (cfnUserPoolClient) {
     'custom:role',
     'custom:department',
   ];
-  
+
   cfnUserPoolClient.writeAttributes = [
     'email',
   ];
@@ -92,27 +97,30 @@ const s3Bucket = backend.storage.resources.bucket;
 // Encryption is enabled by default in Amplify Gen 2
 // The bucket already has server-side encryption with S3-managed keys (SSE-S3)
 
+// Grant permissions to post-confirmation trigger (access via auth.resources)
+// The trigger function is automatically wired by Amplify when defined in auth triggers
+
 // Configure Chatbot Lambda function
 const chatbotLambda = backend.chatbotFunction.resources.lambda;
 
 // Set environment variables for Chatbot Lambda
 backend.chatbotFunction.addEnvironment('KNOWLEDGE_BASE_BUCKET', s3Bucket.bucketName);
 backend.chatbotFunction.addEnvironment('BEDROCK_MODEL_ID', process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-sonnet-20240229-v1:0');
+backend.chatbotFunction.addEnvironment('BEDROCK_REGION', 'eu-west-1'); // Bedrock region for API calls
 backend.chatbotFunction.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 backend.chatbotFunction.addEnvironment('CLIENT_ID', backend.auth.resources.userPoolClient.userPoolClientId);
 backend.chatbotFunction.addEnvironment('ENVIRONMENT', environment);
-backend.chatbotFunction.addEnvironment('AWS_REGION', process.env.AWS_REGION || process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1');
 
 // Grant S3 read permissions to Chatbot Lambda
 s3Bucket.grantRead(chatbotLambda, 'knowledge-base/*');
 
-// Grant Bedrock invoke permissions to Chatbot Lambda
+// Grant Bedrock invoke permissions to Chatbot Lambda (eu-west-1 region)
 chatbotLambda.addToRolePolicy(
   new PolicyStatement({
     actions: ['bedrock:InvokeModel'],
     resources: [
-      `arn:aws:bedrock:*::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
-      `arn:aws:bedrock:*::foundation-model/anthropic.claude-*`,
+      `arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0`,
+      `arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-*`,
     ],
   })
 );
@@ -124,7 +132,6 @@ const adminLambda = backend.adminFunction.resources.lambda;
 backend.adminFunction.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 backend.adminFunction.addEnvironment('CLIENT_ID', backend.auth.resources.userPoolClient.userPoolClientId);
 backend.adminFunction.addEnvironment('ENVIRONMENT', environment);
-backend.adminFunction.addEnvironment('AWS_REGION', process.env.AWS_REGION || process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1');
 
 // Grant Cognito permissions to Admin Lambda
 adminLambda.addToRolePolicy(
