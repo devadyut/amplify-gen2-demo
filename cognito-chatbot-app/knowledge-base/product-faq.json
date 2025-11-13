@@ -1,0 +1,10 @@
+{
+  "documentId": "product-faq-001",
+  "title": "Product FAQ",
+  "content": "Q: What is the Cognito Chatbot App?\nA: The Cognito Chatbot App is a full-stack serverless application built with AWS Amplify Gen 2, featuring Next.js server-side rendered frontend with attribute-based access control, REST APIs, and an AI-powered chatbot using Amazon Bedrock.\n\nQ: What authentication method does the app use?\nA: The app uses AWS Cognito for authentication with custom attributes for attribute-based access control (ABAC). Users authenticate with email and password.\n\nQ: What are the different user roles?\nA: There are two user roles: 'user' and 'admin'. The user role has access to the user page and chatbot functionality. The admin role has access to both user and admin pages with additional administrative capabilities.\n\nQ: How does the chatbot work?\nA: The chatbot uses Amazon Bedrock's large language models to answer questions. It retrieves relevant context from knowledge base documents stored in S3 and uses that context to generate accurate, informed responses.\n\nQ: What AWS services are used?\nA: The application uses AWS Cognito for authentication, API Gateway for REST APIs, Lambda for serverless functions, S3 for document storage, Amazon Bedrock for AI capabilities, and AWS Amplify Gen 2 for deployment and infrastructure management.\n\nQ: Is the application secure?\nA: Yes, the application implements multiple security layers including JWT token validation, attribute-based access control, encrypted data at rest and in transit, CORS configuration, rate limiting, and follows AWS security best practices.\n\nQ: Can I customize the chatbot responses?\nA: Yes, you can customize responses by updating the knowledge base documents in S3. The chatbot uses these documents as context when generating answers.",
+  "metadata": {
+    "category": "product",
+    "lastUpdated": "2025-01-15T00:00:00Z",
+    "tags": ["faq", "product", "overview"]
+  }
+}

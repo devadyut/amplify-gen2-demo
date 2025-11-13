@@ -1,0 +1,35 @@
+{
+  "name": "cognito-chatbot-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "setup": "bash scripts/setup-local.sh",
+    "deploy:staging": "bash scripts/deploy-staging.sh",
+    "deploy:production": "bash scripts/deploy-production.sh",
+    "amplify:sandbox": "npx ampx sandbox",
+    "amplify:generate": "npx ampx generate outputs",
+    "test:integration": "node scripts/test-integration.js",
+    "test:cors-security": "node scripts/test-cors-security.js",
+    "verify:wiring": "node scripts/verify-wiring.js"
+  },
+  "dependencies": {
+    "@aws-amplify/backend": "^1.18.0",
+    "@aws-amplify/backend-cli": "^1.8.0",
+    "aws-amplify": "^6.15.8",
+    "next": "16.0.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.4",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.2",
+    "typescript": "^5.9.3"
+  }
+}

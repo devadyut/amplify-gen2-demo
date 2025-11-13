@@ -1,0 +1,10 @@
+{
+  "documentId": "user-guide-001",
+  "title": "User Guide",
+  "content": "# Getting Started with Cognito Chatbot App\n\n## Logging In\n1. Navigate to the application URL\n2. Enter your email address and password\n3. Click the 'Sign In' button\n4. If authentication is successful, you'll be redirected to your role-specific page\n\n## Using the Chatbot (User Role)\nOnce logged in as a user, you can:\n1. View the chatbot interface on your user page\n2. Type your question in the input field\n3. Press Enter or click Send\n4. Wait for the AI to generate a response\n5. View the answer in the chat history\n6. Ask follow-up questions as needed\n\n## Tips for Better Chatbot Responses\n- Be specific with your questions\n- Provide context when asking about technical topics\n- Ask one question at a time for clearer answers\n- If the answer isn't helpful, try rephrasing your question\n\n## Admin Features (Admin Role)\nIf you have admin access, you can:\n1. Access the admin dashboard\n2. View system statistics\n3. Monitor application usage\n4. Manage user access (future feature)\n\n## Troubleshooting\n\n### Cannot Log In\n- Verify your email and password are correct\n- Check if your email is verified\n- Contact your administrator if issues persist\n\n### Chatbot Not Responding\n- Check your internet connection\n- Refresh the page and try again\n- If the problem continues, contact support\n\n### Access Denied Errors\n- Verify you have the correct role assigned\n- Log out and log back in\n- Contact your administrator to verify your permissions\n\n## Security Best Practices\n- Use a strong, unique password\n- Don't share your credentials\n- Log out when finished using the application\n- Report any suspicious activity to your administrator\n\n## Support\nFor additional help or to report issues, contact your system administrator.",
+  "metadata": {
+    "category": "guide",
+    "lastUpdated": "2025-01-15T00:00:00Z",
+    "tags": ["user-guide", "help", "tutorial"]
+  }
+}
