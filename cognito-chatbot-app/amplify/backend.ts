@@ -11,7 +11,7 @@ import { getEnvironmentConfig } from './env-config';
 
 // Get environment-specific configuration
 const envConfig = getEnvironmentConfig();
-const { name: environment, isProduction, isStaging, isDevelopment } = envConfig;
+const { name: environment, isProduction } = envConfig;
 
 console.log(`Configuring backend for environment: ${environment}`);
 
