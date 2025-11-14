@@ -1,47 +1,82 @@
+'use client';
+
 /**
- * User Page Component with Server-Side Rendering
+ * User Page Component (Client-Side)
  * Accessible to authenticated users with 'user' or 'admin' role
  * Includes chatbot interface and user-specific content
  */
 
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { getServerSession, getUserAttributes } from '../../lib/auth-server';
+import { useState, useEffect } from 'react';
+import { Amplify } from 'aws-amplify';
+import { getCurrentUser, fetchAuthSession, signOut } from 'aws-amplify/auth';
+import { useRouter } from 'next/navigation';
+import outputs from '../../amplify_outputs.json';
 import Chatbot from '../../components/Chatbot';
 import styles from './user.module.css';
 
-/**
- * Server-side authentication check
- * Validates session and extracts user attributes
- */
-async function getUserData() {
-  const session = await getServerSession();
-  
-  if (!session) {
-    redirect('/login?redirect=/user');
-  }
-  
-  const userAttributes = getUserAttributes(session.idToken);
-  
-  if (!userAttributes || !userAttributes.role) {
-    redirect('/login?error=invalid_session');
-  }
-  
-  // Verify user has appropriate role (user or admin)
-  if (userAttributes.role !== 'user' && userAttributes.role !== 'admin') {
-    redirect('/unauthorized');
-  }
-  
-  return userAttributes;
-}
+Amplify.configure(outputs);
 
-/**
- * User Page Component
- * Server-side rendered with authentication check
- */
-export default async function UserPage() {
-  const user = await getUserData();
-  
+export default function UserPage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    try {
+      const currentUser = await getCurrentUser();
+      const session = await fetchAuthSession();
+      
+      const idToken = session.tokens?.idToken;
+      if (!idToken) {
+        router.push('/login?redirect=/user');
+        return;
+      }
+
+      const userAttributes = {
+        email: idToken.payload.email,
+        role: idToken.payload['custom:role'],
+        department: idToken.payload['custom:department'],
+        username: idToken.payload['cognito:username'],
+      };
+
+      if (!userAttributes.role) {
+        router.push('/unauthorized');
+        return;
+      }
+
+      setUser(userAttributes);
+      setLoading(false);
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      router.push('/login?redirect=/user');
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loading}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -53,11 +88,9 @@ export default async function UserPage() {
                 Admin Dashboard
               </a>
             )}
-            <form action="/api/auth/logout" method="POST" className={styles.logoutForm}>
-              <button type="submit" className={styles.logoutButton}>
-                Logout
-              </button>
-            </form>
+            <button onClick={handleLogout} className={styles.logoutButton}>
+              Logout
+            </button>
           </nav>
         </div>
       </header>

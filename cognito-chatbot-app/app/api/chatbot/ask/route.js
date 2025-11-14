@@ -5,8 +5,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from '../../../../lib/auth-server';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import outputs from '../../../../amplify_outputs.json';
+
+// Initialize Lambda client
+const lambdaClient = new LambdaClient({ 
+  region: outputs.custom?.API?.region || 'eu-west-1' 
+});
 
 /**
  * Get API Gateway endpoint from Amplify outputs
@@ -17,12 +22,12 @@ function getApiEndpoint() {
   if (outputs.custom?.API?.endpoint) {
     return outputs.custom.API.endpoint;
   }
-  
+
   // Fallback: construct from environment variable if available
   if (process.env.API_GATEWAY_ENDPOINT) {
     return process.env.API_GATEWAY_ENDPOINT;
   }
-  
+
   throw new Error('API Gateway endpoint not configured');
 }
 
@@ -32,10 +37,10 @@ function getApiEndpoint() {
  */
 export async function POST(request) {
   try {
-    // 1. Validate session on server-side
-    const session = await getServerSession();
-    
-    if (!session || !session.idToken) {
+    // 1. Get authorization token from request header
+    const authHeader = request.headers.get('Authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         {
           error: {
@@ -46,7 +51,9 @@ export async function POST(request) {
         { status: 401 }
       );
     }
-    
+
+    const idToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+
     // 2. Parse request body
     let body;
     try {
@@ -62,9 +69,9 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     const { question, conversationId } = body;
-    
+
     // Validate question
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
       return NextResponse.json(
@@ -77,27 +84,46 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // 3. Get API Gateway endpoint
     const apiEndpoint = getApiEndpoint();
     const lambdaUrl = `${apiEndpoint}/chatbot/ask`;
-    
+
     // 4. Forward request to Lambda chatbot function
     const lambdaResponse = await fetch(lambdaUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.idToken}`,
+        'Authorization': `Bearer ${idToken}`,
       },
       body: JSON.stringify({
         question: question.trim(),
         conversationId,
       }),
     });
-    
+
     // 5. Handle Lambda response
-    const responseData = await lambdaResponse.json();
+    let responseData;
+    const contentType = lambdaResponse.headers.get('content-type');
     
+    if (contentType && contentType.includes('application/json')) {
+      responseData = await lambdaResponse.json();
+    } else {
+      // Response is not JSON (probably HTML error page)
+      const text = await lambdaResponse.text();
+      console.error('Non-JSON response from Lambda:', text.substring(0, 500));
+      
+      return NextResponse.json(
+        {
+          error: {
+            code: 'GATEWAY_ERROR',
+            message: 'API Gateway returned an invalid response. Check authentication configuration.',
+          },
+        },
+        { status: 502 }
+      );
+    }
+
     if (!lambdaResponse.ok) {
       // Forward error from Lambda
       return NextResponse.json(
@@ -105,13 +131,13 @@ export async function POST(request) {
         { status: lambdaResponse.status }
       );
     }
-    
+
     // 6. Return successful response
     return NextResponse.json(responseData, { status: 200 });
-    
+
   } catch (error) {
     console.error('Chatbot API route error:', error);
-    
+
     // Handle specific error types
     if (error.message.includes('endpoint not configured')) {
       return NextResponse.json(
@@ -124,7 +150,7 @@ export async function POST(request) {
         { status: 503 }
       );
     }
-    
+
     if (error.message.includes('fetch') || error.code === 'ECONNREFUSED') {
       return NextResponse.json(
         {
@@ -136,7 +162,7 @@ export async function POST(request) {
         { status: 503 }
       );
     }
-    
+
     // Generic error response
     return NextResponse.json(
       {

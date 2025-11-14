@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { signUp, confirmSignUp, signIn } from 'aws-amplify/auth';
+import { Amplify } from 'aws-amplify';
+import { signUp, confirmSignUp } from 'aws-amplify/auth';
 import { useRouter } from 'next/navigation';
+import outputs from '../../amplify_outputs.json';
 import styles from './signup.module.css';
+
+Amplify.configure(outputs);
 
 export default function SignupPage() {
   const router = useRouter();
@@ -74,14 +78,8 @@ export default function SignupPage() {
         confirmationCode: confirmationCode,
       });
 
-      // After confirmation, automatically sign in
-      await signIn({
-        username: formData.email,
-        password: formData.password,
-      });
-
-      // Redirect to user page
-      router.push('/user');
+      // Redirect to login page with success message
+      router.push('/login?message=signup_success');
     } catch (err) {
       console.error('Confirmation error:', err);
       setError(err.message || 'Failed to confirm signup. Please try again.');

@@ -1,74 +1,90 @@
+'use client';
+
 /**
- * Admin Page Component with Server-Side Rendering
+ * Admin Page Component (Client-Side)
  * Accessible only to authenticated users with 'admin' role
  * Displays system statistics and admin-specific content
  */
 
-import { redirect } from 'next/navigation';
-import { getServerSession, getUserAttributes } from '../../lib/auth-server';
+import { useState, useEffect } from 'react';
+import { Amplify } from 'aws-amplify';
+import { getCurrentUser, fetchAuthSession, signOut } from 'aws-amplify/auth';
+import { useRouter } from 'next/navigation';
+import outputs from '../../amplify_outputs.json';
 import styles from './admin.module.css';
 
-/**
- * Server-side authentication and role check
- * Validates session and ensures user has admin role
- */
-async function getAdminData() {
-  const session = await getServerSession();
-  
-  if (!session) {
-    redirect('/login?redirect=/admin');
-  }
-  
-  const userAttributes = getUserAttributes(session.idToken);
-  
-  if (!userAttributes || !userAttributes.role) {
-    redirect('/login?error=invalid_session');
-  }
-  
-  // Verify user has admin role
-  if (userAttributes.role !== 'admin') {
-    redirect('/unauthorized');
-  }
-  
-  return { userAttributes, session };
-}
+Amplify.configure(outputs);
 
-/**
- * Fetch system statistics from admin API
- */
-async function getSystemStats(session) {
-  try {
-    // Call Next.js API route which proxies to Lambda
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/admin/stats`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.idToken}`,
-      },
-      cache: 'no-store', // Don't cache admin stats
-    });
-    
-    if (!response.ok) {
-      console.error('Failed to fetch stats:', response.status);
-      return null;
+export default function AdminPage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    try {
+      const currentUser = await getCurrentUser();
+      const session = await fetchAuthSession();
+      
+      const idToken = session.tokens?.idToken;
+      if (!idToken) {
+        router.push('/login?redirect=/admin');
+        return;
+      }
+
+      const userAttributes = {
+        email: idToken.payload.email,
+        role: idToken.payload['custom:role'],
+        department: idToken.payload['custom:department'],
+        username: idToken.payload['cognito:username'],
+      };
+
+      // Check if user has admin role
+      if (userAttributes.role !== 'admin') {
+        router.push('/unauthorized');
+        return;
+      }
+
+      setUser(userAttributes);
+      setLoading(false);
+      
+      // Load admin stats (placeholder for now)
+      setStats({
+        totalUsers: 0,
+        activeUsers: 0,
+        totalQuestions: 0,
+      });
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      router.push('/login?redirect=/admin');
     }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching system stats:', error);
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loading}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return null;
   }
-}
 
-/**
- * Admin Page Component
- * Server-side rendered with authentication and role check
- */
-export default async function AdminPage() {
-  const { userAttributes, session } = await getAdminData();
-  const stats = await getSystemStats(session);
-  
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -78,104 +94,52 @@ export default async function AdminPage() {
             <a href="/user" className={styles.navLink}>
               User Page
             </a>
-            <form action="/api/auth/logout" method="POST" className={styles.logoutForm}>
-              <button type="submit" className={styles.logoutButton}>
-                Logout
-              </button>
-            </form>
+            <button onClick={handleLogout} className={styles.logoutButton}>
+              Logout
+            </button>
           </nav>
         </div>
       </header>
       
       <main className={styles.main}>
-        <div className={styles.adminInfo}>
-          <h2>Administrator Profile</h2>
-          <div className={styles.infoGrid}>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Email:</span>
-              <span className={styles.infoValue}>{userAttributes.email}</span>
-            </div>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Role:</span>
-              <span className={styles.infoValue}>
-                <span className={styles.adminBadge}>{userAttributes.role}</span>
-              </span>
-            </div>
-            {userAttributes.department && (
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>Department:</span>
-                <span className={styles.infoValue}>{userAttributes.department}</span>
-              </div>
-            )}
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Username:</span>
-              <span className={styles.infoValue}>{userAttributes.username}</span>
-            </div>
+        <div className={styles.welcomeSection}>
+          <h2>Welcome, Administrator</h2>
+          <p className={styles.userEmail}>{user.email}</p>
+        </div>
+
+        <div className={styles.statsGrid}>
+          <div className={styles.statCard}>
+            <h3 className={styles.statTitle}>Total Users</h3>
+            <p className={styles.statValue}>{stats?.totalUsers || 0}</p>
+          </div>
+          
+          <div className={styles.statCard}>
+            <h3 className={styles.statTitle}>Active Users</h3>
+            <p className={styles.statValue}>{stats?.activeUsers || 0}</p>
+          </div>
+          
+          <div className={styles.statCard}>
+            <h3 className={styles.statTitle}>Total Questions</h3>
+            <p className={styles.statValue}>{stats?.totalQuestions || 0}</p>
           </div>
         </div>
-        
-        <div className={styles.statsSection}>
-          <h2>System Statistics</h2>
-          {stats ? (
-            <>
-              <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
-                  <div className={styles.statValue}>{stats.totalUsers}</div>
-                  <div className={styles.statLabel}>Total Users</div>
-                </div>
-                <div className={styles.statCard}>
-                  <div className={styles.statValue}>{stats.usersByRole?.user || 0}</div>
-                  <div className={styles.statLabel}>Standard Users</div>
-                </div>
-                <div className={styles.statCard}>
-                  <div className={styles.statValue}>{stats.usersByRole?.admin || 0}</div>
-                  <div className={styles.statLabel}>Administrators</div>
-                </div>
-              </div>
-              <div className={styles.statsFooter}>
-                <span className={styles.statsTimestamp}>
-                  Last updated: {new Date(stats.timestamp).toLocaleString()}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className={styles.statsError}>
-              <p>Unable to load system statistics. Please try again later.</p>
-            </div>
-          )}
-        </div>
-        
-        <div className={styles.adminActions}>
-          <h2>Admin Options</h2>
-          <div className={styles.actionsGrid}>
-            <div className={styles.actionCard}>
-              <h3>User Management</h3>
-              <p>View and manage user accounts, roles, and permissions.</p>
-              <button className={styles.actionButton} disabled>
-                Coming Soon
-              </button>
-            </div>
-            <div className={styles.actionCard}>
-              <h3>Knowledge Base</h3>
-              <p>Upload and manage documents for the AI chatbot.</p>
-              <button className={styles.actionButton} disabled>
-                Coming Soon
-              </button>
-            </div>
-            <div className={styles.actionCard}>
-              <h3>System Logs</h3>
-              <p>View application logs and monitor system health.</p>
-              <button className={styles.actionButton} disabled>
-                Coming Soon
-              </button>
-            </div>
-            <div className={styles.actionCard}>
-              <h3>Settings</h3>
-              <p>Configure application settings and preferences.</p>
-              <button className={styles.actionButton} disabled>
-                Coming Soon
-              </button>
-            </div>
+
+        <div className={styles.adminSection}>
+          <h2>Admin Functions</h2>
+          <p className={styles.description}>
+            This is the admin dashboard. You can add admin-specific functionality here.
+          </p>
+          
+          <div className={styles.adminActions}>
+            <button className={styles.actionButton}>
+              Manage Users
+            </button>
+            <button className={styles.actionButton}>
+              View Analytics
+            </button>
+            <button className={styles.actionButton}>
+              System Settings
+            </button>
           </div>
         </div>
       </main>

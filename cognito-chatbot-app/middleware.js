@@ -17,7 +17,7 @@ function decodeJWT(token) {
     if (parts.length !== 3) {
       return null;
     }
-    
+
     const payload = parts[1];
     const decoded = Buffer.from(payload, 'base64').toString('utf-8');
     return JSON.parse(decoded);
@@ -33,7 +33,7 @@ function decodeJWT(token) {
  */
 function getIdTokenFromCookies(request) {
   const cookies = request.cookies;
-  
+
   // Try to find the ID token cookie
   // Amplify uses pattern: CognitoIdentityServiceProvider.{clientId}.{username}.idToken
   for (const [name, value] of cookies) {
@@ -41,7 +41,7 @@ function getIdTokenFromCookies(request) {
       return value;
     }
   }
-  
+
   return null;
 }
 
@@ -53,7 +53,7 @@ function getUserRole(token) {
   if (!claims) {
     return null;
   }
-  
+
   return claims['custom:role'] || null;
 }
 
@@ -65,7 +65,7 @@ function isTokenExpired(token) {
   if (!claims || !claims.exp) {
     return true;
   }
-  
+
   const currentTime = Math.floor(Date.now() / 1000);
   return claims.exp < currentTime;
 }
@@ -79,7 +79,7 @@ function checkAuthorization(userRole, pathname) {
   if (userRole === 'admin') {
     return true;
   }
-  
+
   // User can access user pages but not admin pages
   if (userRole === 'user') {
     if (pathname.startsWith('/admin')) {
@@ -87,7 +87,7 @@ function checkAuthorization(userRole, pathname) {
     }
     return true;
   }
-  
+
   return false;
 }
 
@@ -97,25 +97,26 @@ function checkAuthorization(userRole, pathname) {
  */
 export function middleware(request) {
   const { pathname } = request.nextUrl;
-  
+
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup', '/', '/unauthorized'];
+  // Note: /user and /admin handle their own client-side auth checks
+  const publicRoutes = ['/login', '/signup', '/', '/unauthorized', '/user', '/admin'];
   const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith('/_next') || pathname.startsWith('/api/auth'));
-  
+
   if (isPublicRoute) {
     return NextResponse.next();
   }
-  
+
   // Extract ID token from cookies
   const idToken = getIdTokenFromCookies(request);
-  
+
   // If no token, redirect to login
   if (!idToken) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
-  
+
   // Check if token is expired
   if (isTokenExpired(idToken)) {
     const loginUrl = new URL('/login', request.url);
@@ -123,28 +124,28 @@ export function middleware(request) {
     loginUrl.searchParams.set('error', 'session_expired');
     return NextResponse.redirect(loginUrl);
   }
-  
+
   // Extract user role from token
   const userRole = getUserRole(idToken);
-  
+
   // If no role attribute, deny access
   if (!userRole) {
     const unauthorizedUrl = new URL('/unauthorized', request.url);
     return NextResponse.redirect(unauthorizedUrl);
   }
-  
+
   // Check authorization based on role and pathname
   const isAuthorized = checkAuthorization(userRole, pathname);
-  
+
   if (!isAuthorized) {
     const unauthorizedUrl = new URL('/unauthorized', request.url);
     return NextResponse.redirect(unauthorizedUrl);
   }
-  
+
   // Add user role to request headers for use in server components
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-user-role', userRole);
-  
+
   // Continue to the requested page
   return NextResponse.next({
     request: {
