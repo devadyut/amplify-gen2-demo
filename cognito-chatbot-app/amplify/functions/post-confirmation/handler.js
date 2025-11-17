@@ -4,15 +4,28 @@
  */
 
 import { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { createLogger } from '../shared/logger.js';
 
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 export const handler = async (event) => {
-  console.log('Post-confirmation trigger invoked:', JSON.stringify(event, null, 2));
+  const requestId = event.request?.userContextData?.requestId || `req-${Date.now()}`;
+  const logger = createLogger({ requestId, function: 'post-confirmation' });
+  
+  logger.info('Post-confirmation trigger invoked', { 
+    userPoolId: event.userPoolId,
+    username: event.userName,
+    triggerSource: event.triggerSource 
+  });
 
   try {
     const userPoolId = event.userPoolId;
     const username = event.userName;
+
+    logger.logServiceCall('Cognito', 'AdminUpdateUserAttributes', { 
+      userPoolId, 
+      username 
+    });
 
     // Set custom:role attribute to "user" for new signups
     const command = new AdminUpdateUserAttributesCommand({
@@ -27,13 +40,21 @@ export const handler = async (event) => {
     });
 
     await cognitoClient.send(command);
-    console.log(`Successfully set custom:role to "user" for user: ${username}`);
+    
+    logger.info('Successfully set custom:role attribute', { 
+      username, 
+      role: 'user' 
+    });
 
     return event;
   } catch (error) {
-    console.error('Error setting custom:role attribute:', error);
+    logger.error('Error setting custom:role attribute', error, { 
+      username: event.userName 
+    });
+    
     // Don't throw error to avoid blocking user signup
     // The role can be set manually later if this fails
+    logger.warn('Continuing signup despite role assignment failure');
     return event;
   }
 };

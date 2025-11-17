@@ -133,6 +133,9 @@ backend.adminFunction.addEnvironment('USER_POOL_ID', backend.auth.resources.user
 backend.adminFunction.addEnvironment('CLIENT_ID', backend.auth.resources.userPoolClient.userPoolClientId);
 backend.adminFunction.addEnvironment('ENVIRONMENT', environment);
 
+// Note: Post-Confirmation Lambda is configured through auth resource triggers
+// to avoid circular dependencies. Environment variables are set in auth/resource.ts
+
 // Grant Cognito permissions to Admin Lambda
 adminLambda.addToRolePolicy(
   new PolicyStatement({
@@ -153,6 +156,12 @@ const restApi = createRestApi(
   chatbotLambda,
   adminLambda
 );
+
+// CloudWatch Logging Configuration
+// Note: Lambda functions automatically create log groups and have permissions to write logs
+// Log groups are created at /aws/lambda/<function-name> with default retention
+// The structured logging utility in shared/logger.js handles all log formatting
+console.log(`CloudWatch logging enabled for all Lambda functions with structured JSON format`);
 
 // Environment-specific configurations
 console.log(`Applying ${environment} environment configurations...`);

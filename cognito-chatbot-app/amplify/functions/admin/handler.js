@@ -5,6 +5,7 @@
 
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { createLogger } from '../shared/logger.js';
 
 // Initialize AWS clients
 const cognitoClient = new CognitoIdentityProviderClient({});
@@ -44,16 +45,18 @@ function extractToken(event) {
 /**
  * Validate JWT token and extract claims
  */
-async function validateToken(token) {
+async function validateToken(token, logger) {
   try {
     if (!jwtVerifier) {
       throw new Error('JWT verifier not initialized');
     }
     
+    logger.debug('Validating JWT token');
     const payload = await jwtVerifier.verify(token);
+    logger.info('Token validated successfully', { userId: payload.sub });
     return payload;
   } catch (error) {
-    console.error('Token validation failed:', error);
+    logger.error('Token validation failed', error);
     throw new Error('Invalid or expired token');
   }
 }
@@ -61,17 +64,28 @@ async function validateToken(token) {
 /**
  * Validate admin role from custom attributes
  */
-function validateAdminRole(claims) {
+function validateAdminRole(claims, logger) {
   const userRole = claims['custom:role'];
   
   if (!userRole) {
+    logger.warn('User role not found in token', { userId: claims.sub });
     throw new Error('User role not found in token');
   }
   
   // Only allow 'admin' role
   if (userRole !== 'admin') {
+    logger.logAuthDecision('DENIED', { 
+      userId: claims.sub, 
+      role: userRole, 
+      reason: 'Admin role required' 
+    });
     throw new Error('Admin role required');
   }
+  
+  logger.logAuthDecision('GRANTED', { 
+    userId: claims.sub, 
+    role: userRole 
+  });
   
   return userRole;
 }
@@ -79,8 +93,10 @@ function validateAdminRole(claims) {
 /**
  * Get system statistics
  */
-async function getSystemStats() {
+async function getSystemStats(logger) {
   try {
+    logger.logServiceCall('Cognito', 'ListUsers', { userPoolId: USER_POOL_ID });
+    
     // Get user count from Cognito
     const listUsersCommand = new ListUsersCommand({
       UserPoolId: USER_POOL_ID,
@@ -89,6 +105,8 @@ async function getSystemStats() {
     
     const usersResponse = await cognitoClient.send(listUsersCommand);
     const users = usersResponse.Users || [];
+    
+    logger.info('Retrieved users from Cognito', { count: users.length });
     
     // Count users by role
     let userCount = 0;
@@ -105,7 +123,7 @@ async function getSystemStats() {
       }
     });
     
-    return {
+    const stats = {
       totalUsers: users.length,
       usersByRole: {
         user: userCount,
@@ -113,8 +131,12 @@ async function getSystemStats() {
       },
       timestamp: new Date().toISOString(),
     };
+    
+    logger.info('System statistics calculated', stats);
+    
+    return stats;
   } catch (error) {
-    console.error('Error getting system stats:', error);
+    logger.error('Error getting system stats', error);
     throw new Error(`Failed to retrieve system statistics: ${error.message}`);
   }
 }
@@ -123,28 +145,42 @@ async function getSystemStats() {
  * Main Lambda handler
  */
 export const handler = async (event) => {
-  console.log('Admin Lambda invoked', JSON.stringify(event, null, 2));
+  const requestId = event.requestContext?.requestId || `req-${Date.now()}`;
+  const logger = createLogger({ requestId, function: 'admin' });
+  
+  logger.info('Admin Lambda invoked', { 
+    path: event.path || event.rawPath,
+    httpMethod: event.httpMethod || event.requestContext?.http?.method 
+  });
+  
+  const startTime = Date.now();
   
   try {
     // 1. Extract and validate JWT token
     const token = extractToken(event);
-    const claims = await validateToken(token);
+    const claims = await validateToken(token, logger);
+    
+    // Add user context to logger
+    logger.addContext({ userId: claims.sub, username: claims.username });
     
     // 2. Validate admin role
-    const userRole = validateAdminRole(claims);
-    console.log(`Admin authenticated with role: ${userRole}`);
+    const userRole = validateAdminRole(claims, logger);
+    logger.info('Admin authenticated successfully', { role: userRole });
     
     // 3. Parse request to determine operation
     const path = event.path || event.rawPath || '';
     const httpMethod = event.httpMethod || event.requestContext?.http?.method || 'GET';
+    
+    logger.info('Processing admin operation', { path, httpMethod });
     
     // 4. Handle different admin operations
     let responseData;
     
     if (path.includes('/stats') || httpMethod === 'GET') {
       // Get system statistics
-      responseData = await getSystemStats();
+      responseData = await getSystemStats(logger);
     } else {
+      logger.warn('Admin operation not found', { path, httpMethod });
       return {
         statusCode: 404,
         headers: {
@@ -160,6 +196,9 @@ export const handler = async (event) => {
       };
     }
     
+    const duration = Date.now() - startTime;
+    logger.info('Request completed successfully', { duration });
+    
     // 5. Return formatted response
     return {
       statusCode: 200,
@@ -171,7 +210,8 @@ export const handler = async (event) => {
     };
     
   } catch (error) {
-    console.error('Error processing admin request:', error);
+    const duration = Date.now() - startTime;
+    logger.error('Error processing admin request', error, { duration });
     
     // Handle specific error types
     if (error.message.includes('token') || error.message.includes('authorization')) {

@@ -6,6 +6,9 @@ import { defineFunction } from '@aws-amplify/backend';
  * 
  * IMPORTANT: resourceGroupName must be 'auth' to avoid circular dependencies
  * since this function is used as a Cognito trigger
+ * 
+ * Note: Environment variables LOG_LEVEL and ENVIRONMENT are set via process.env
+ * CloudWatch logging is automatically enabled for all Lambda functions
  */
 export const postConfirmationFunction = defineFunction({
   name: 'post-confirmation',
