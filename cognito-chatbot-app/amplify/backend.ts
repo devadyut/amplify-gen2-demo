@@ -4,6 +4,7 @@ import { data } from './data/resource';
 import { storage } from './storage/resource';
 import { chatbotFunction } from './functions/chatbot/resource';
 import { adminFunction } from './functions/admin/resource';
+import { postConfirmationFunction } from './functions/post-confirmation/resource';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { createRestApi } from './api/resource';
 import { Stack } from 'aws-cdk-lib';
@@ -97,8 +98,15 @@ const s3Bucket = backend.storage.resources.bucket;
 // Encryption is enabled by default in Amplify Gen 2
 // The bucket already has server-side encryption with S3-managed keys (SSE-S3)
 
-// Grant permissions to post-confirmation trigger (access via auth.resources)
-// The trigger function is automatically wired by Amplify when defined in auth triggers
+// IMPORTANT: Post-Confirmation Lambda Permissions
+// The post-confirmation Lambda needs cognito-idp:AdminUpdateUserAttributes permission
+// but granting it here creates a circular dependency (Lambda → Policy → UserPool → Lambda).
+// 
+// Solution: Run the permission grant script after deployment:
+//   ./scripts/grant-post-confirmation-permissions.sh
+//
+// This script will find the Lambda role and User Pool, then add the necessary IAM policy.
+console.log('Note: Run ./scripts/grant-post-confirmation-permissions.sh after first deployment');
 
 // Configure Chatbot Lambda function
 const chatbotLambda = backend.chatbotFunction.resources.lambda;
