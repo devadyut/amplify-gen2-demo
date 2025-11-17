@@ -7,8 +7,7 @@
  */
 
 import { useState } from 'react';
-import { fetchAuthSession } from 'aws-amplify/auth';
-import outputs from '../amplify_outputs.json';
+import { post } from 'aws-amplify/api';
 import styles from './Chatbot.module.css';
 
 export default function Chatbot() {
@@ -45,55 +44,21 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      // Get ID token from current session (contains custom:role attribute)
-      const session = await fetchAuthSession();
-      const idToken = session.tokens?.idToken?.toString();
-
-      if (!idToken) {
-        throw new Error('No authentication token available. Please log in again.');
-      }
-
-      console.log('Using ID token for authentication');
-
-      // Get API Gateway endpoint from Amplify outputs
-      const apiEndpoint = outputs.custom?.API?.endpoint;
-      if (!apiEndpoint) {
-        throw new Error('API endpoint not configured');
-      }
-      
-      // Remove trailing slash if present
-      const baseUrl = apiEndpoint.endsWith('/') ? apiEndpoint.slice(0, -1) : apiEndpoint;
-      const apiUrl = `${baseUrl}/chatbot/ask`;
-
-      // Call API Gateway directly
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
+      // Call API Gateway using Amplify API
+      // Amplify automatically handles authentication and token management
+      const restOperation = post({
+        apiName: 'chatbotApi',
+        path: '/chatbot/ask',
+        options: {
+          body: {
+            question: userMessage.content,
+            conversationId,
+          },
         },
-        body: JSON.stringify({
-          question: userMessage.content,
-          conversationId,
-        }),
       });
-      console.log('API Gateway response status:', response.status);
 
-      if (!response.ok) {
-        let errorMessage = `Request failed with status ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error?.message || errorMessage;
-        } catch (parseError) {
-          // Response is not JSON, might be HTML
-          const text = await response.text();
-          console.error('Non-JSON response:', text.substring(0, 200));
-          errorMessage = 'Server returned an invalid response';
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
+      const { body } = await restOperation.response;
+      const data = await body.json();
 
       // Update conversation ID
       if (data.conversationId) {

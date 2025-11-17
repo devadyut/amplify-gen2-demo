@@ -11,7 +11,19 @@ import outputs from '../amplify_outputs.json';
  * This should be called in client components or the root layout
  */
 export function configureAmplifyClient() {
-  Amplify.configure(outputs, {
+  const config = {
+    ...outputs,
+    API: {
+      REST: {
+        chatbotApi: {
+          endpoint: outputs.custom?.API?.endpoint,
+          region: outputs.custom?.API?.region || outputs.auth.aws_region,
+        },
+      },
+    },
+  };
+  
+  Amplify.configure(config, {
     ssr: true, // Enable SSR mode for Next.js
   });
 }
