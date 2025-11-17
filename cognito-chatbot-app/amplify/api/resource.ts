@@ -79,10 +79,13 @@ export function createRestApi(
   });
 
   // Create Cognito authorizer
+  // Note: CognitoUserPoolsAuthorizer validates both ID tokens and access tokens
+  // ID tokens contain user attributes like custom:role
   const authorizer = new CognitoUserPoolsAuthorizer(stack, 'CognitoAuthorizer', {
     cognitoUserPools: [userPool],
     authorizerName: 'CognitoUserPoolAuthorizer',
     identitySource: 'method.request.header.Authorization',
+    resultsCacheTtl: Duration.minutes(0), // Disable caching for testing
   });
 
   // Create request validators

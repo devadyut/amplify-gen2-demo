@@ -19,12 +19,12 @@ const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-son
 const USER_POOL_ID = process.env.USER_POOL_ID;
 const CLIENT_ID = process.env.CLIENT_ID;
 
-// Initialize JWT verifier
+// Initialize JWT verifier for ID tokens (contains custom:role)
 let jwtVerifier;
 if (USER_POOL_ID && CLIENT_ID) {
   jwtVerifier = CognitoJwtVerifier.create({
     userPoolId: USER_POOL_ID,
-    tokenUse: 'access',
+    tokenUse: 'id', // Changed from 'access' to 'id' to accept ID tokens
     clientId: CLIENT_ID,
   });
 }
