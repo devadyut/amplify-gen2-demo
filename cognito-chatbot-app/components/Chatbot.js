@@ -7,6 +7,8 @@
  */
 
 import { useState } from 'react';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import outputs from '../amplify_outputs.json';
 import styles from './Chatbot.module.css';
 
 export default function Chatbot() {
@@ -21,15 +23,15 @@ export default function Chatbot() {
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate input
     if (!question.trim()) {
       return;
     }
-    
+
     // Clear any previous errors
     setError(null);
-    
+
     // Add user message to chat
     const userMessage = {
       id: Date.now(),
@@ -37,36 +39,67 @@ export default function Chatbot() {
       content: question.trim(),
       timestamp: new Date().toISOString(),
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setQuestion('');
     setIsLoading(true);
-    
+
     try {
-      // Call Next.js API route
-      const response = await fetch('/api/chatbot/ask', {
+      // Get ID token from current session (contains custom:role attribute)
+      const session = await fetchAuthSession();
+      const idToken = session.tokens?.idToken?.toString();
+
+      if (!idToken) {
+        throw new Error('No authentication token available. Please log in again.');
+      }
+
+      console.log('Using ID token for authentication');
+
+      // Get API Gateway endpoint from Amplify outputs
+      const apiEndpoint = outputs.custom?.API?.endpoint;
+      if (!apiEndpoint) {
+        throw new Error('API endpoint not configured');
+      }
+      
+      // Remove trailing slash if present
+      const baseUrl = apiEndpoint.endsWith('/') ? apiEndpoint.slice(0, -1) : apiEndpoint;
+      const apiUrl = `${baseUrl}/chatbot/ask`;
+
+      // Call API Gateway directly
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           question: userMessage.content,
           conversationId,
         }),
       });
-      
+      console.log('API Gateway response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `Request failed with status ${response.status}`);
+        let errorMessage = `Request failed with status ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorMessage;
+        } catch (parseError) {
+          // Response is not JSON, might be HTML
+          const text = await response.text();
+          console.error('Non-JSON response:', text.substring(0, 200));
+          errorMessage = 'Server returned an invalid response';
+        }
+        throw new Error(errorMessage);
       }
-      
+
       const data = await response.json();
-      
+
       // Update conversation ID
       if (data.conversationId) {
         setConversationId(data.conversationId);
       }
-      
+
       // Add AI response to chat
       const aiMessage = {
         id: Date.now() + 1,
@@ -75,15 +108,15 @@ export default function Chatbot() {
         sources: data.sources,
         timestamp: data.timestamp,
       };
-      
+
       setMessages(prev => [...prev, aiMessage]);
-      
+
     } catch (err) {
       console.error('Chatbot error:', err);
-      
+
       // Display error message
       setError(err.message || 'Failed to get response. Please try again.');
-      
+
       // Add error message to chat
       const errorMessage = {
         id: Date.now() + 1,
@@ -91,9 +124,9 @@ export default function Chatbot() {
         content: 'Sorry, I encountered an error processing your question. Please try again.',
         timestamp: new Date().toISOString(),
       };
-      
+
       setMessages(prev => [...prev, errorMessage]);
-      
+
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +190,7 @@ export default function Chatbot() {
                 )}
               </div>
             ))}
-            
+
             {isLoading && (
               <div className={`${styles.message} ${styles.ai} ${styles.loading}`}>
                 <div className={styles.messageHeader}>
@@ -176,14 +209,14 @@ export default function Chatbot() {
           </div>
         )}
       </div>
-      
+
       {error && (
         <div className={styles.errorBanner}>
           <span className={styles.errorIcon}>⚠️</span>
           <span className={styles.errorText}>{error}</span>
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit} className={styles.inputForm}>
         <div className={styles.inputContainer}>
           <input
