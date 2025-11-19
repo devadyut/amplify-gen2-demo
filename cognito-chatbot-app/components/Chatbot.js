@@ -7,7 +7,8 @@
  */
 
 import { useState } from 'react';
-import { post } from 'aws-amplify/api';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import outputs from '../amplify_outputs.json';
 import styles from './Chatbot.module.css';
 
 export default function Chatbot() {
@@ -44,21 +45,33 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      // Call API Gateway using Amplify API
-      // Amplify automatically handles authentication and token management
-      const restOperation = post({
-        apiName: 'chatbotApi',
-        path: '/chatbot/ask',
-        options: {
-          body: {
-            question: userMessage.content,
-            conversationId,
-          },
+      // Get auth session and token
+      const session = await fetchAuthSession();
+      const idToken = session.tokens?.idToken?.toString();
+      
+      if (!idToken) {
+        throw new Error('Not authenticated');
+      }
+
+      // Call API Gateway directly with fetch
+      const apiEndpoint = outputs.custom?.API?.endpoint;
+      const response = await fetch(`${apiEndpoint}chatbot/ask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
+        body: JSON.stringify({
+          question: userMessage.content,
+          conversationId,
+        }),
       });
 
-      const { body } = await restOperation.response;
-      const data = await body.json();
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
 
       // Update conversation ID
       if (data.conversationId) {
