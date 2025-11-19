@@ -193,6 +193,11 @@ backend.addOutput({
       endpoint: restApi.url,
       region: stack.region,
       apiId: restApi.restApiId,
+      // Add REST API configuration for Amplify API client
+      ChatbotAPI: {
+        endpoint: restApi.url,
+        region: stack.region,
+      },
     },
     Environment: {
       name: environment,
