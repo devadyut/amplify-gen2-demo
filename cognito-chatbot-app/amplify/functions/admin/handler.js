@@ -142,6 +142,40 @@ async function getSystemStats(logger) {
 }
 
 /**
+ * Validate Cognito identity from request context
+ */
+function validateCognitoIdentity(event, logger) {
+  // Validate Cognito identity from request context (for IAM-authorized API Gateway)
+  const cognitoIdentity = event.requestContext?.identity?.cognitoIdentityId;
+  const cognitoAuthProvider = event.requestContext?.identity?.cognitoAuthenticationProvider;
+  
+  // Extract sub from cognitoAuthenticationProvider
+  // Format: cognito-idp.{region}.amazonaws.com/{userPoolId},{sub}
+  let sub = null;
+  if (cognitoAuthProvider) {
+    const parts = cognitoAuthProvider.split(':');
+    if (parts.length > 0) {
+      sub = parts[parts.length - 1];
+    }
+  }
+  
+  if (!cognitoIdentity || !sub) {
+    logger.warn('Missing Cognito identity or sub in request context', {
+      hasCognitoIdentity: !!cognitoIdentity,
+      hasSub: !!sub,
+    });
+    throw new Error('Valid Cognito identity required');
+  }
+  
+  logger.info('Cognito identity validated', { 
+    cognitoIdentityId: cognitoIdentity,
+    sub: sub 
+  });
+  
+  return { cognitoIdentityId: cognitoIdentity, sub };
+}
+
+/**
  * Main Lambda handler
  */
 export const handler = async (event) => {
@@ -156,24 +190,25 @@ export const handler = async (event) => {
   const startTime = Date.now();
   
   try {
-    // 1. Extract and validate JWT token
+    // 1. Validate Cognito identity from request context
+    const identity = validateCognitoIdentity(event, logger);
+    logger.addContext({ userId: identity.sub, cognitoIdentityId: identity.cognitoIdentityId });
+    
+    // 2. Extract and validate JWT token (for additional claims like role)
     const token = extractToken(event);
     const claims = await validateToken(token, logger);
     
-    // Add user context to logger
-    logger.addContext({ userId: claims.sub, username: claims.username });
-    
-    // 2. Validate admin role
+    // 3. Validate admin role
     const userRole = validateAdminRole(claims, logger);
     logger.info('Admin authenticated successfully', { role: userRole });
     
-    // 3. Parse request to determine operation
+    // 4. Parse request to determine operation
     const path = event.path || event.rawPath || '';
     const httpMethod = event.httpMethod || event.requestContext?.http?.method || 'GET';
     
     logger.info('Processing admin operation', { path, httpMethod });
     
-    // 4. Handle different admin operations
+    // 5. Handle different admin operations
     let responseData;
     
     if (path.includes('/stats') || httpMethod === 'GET') {
@@ -199,7 +234,7 @@ export const handler = async (event) => {
     const duration = Date.now() - startTime;
     logger.info('Request completed successfully', { duration });
     
-    // 5. Return formatted response
+    // 6. Return formatted response
     return {
       statusCode: 200,
       headers: {
@@ -214,7 +249,7 @@ export const handler = async (event) => {
     logger.error('Error processing admin request', error, { duration });
     
     // Handle specific error types
-    if (error.message.includes('token') || error.message.includes('authorization')) {
+    if (error.message.includes('token') || error.message.includes('authorization') || error.message.includes('Cognito identity')) {
       return {
         statusCode: 401,
         headers: {

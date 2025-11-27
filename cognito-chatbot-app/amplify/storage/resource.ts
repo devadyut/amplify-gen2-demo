@@ -2,6 +2,10 @@ import { defineStorage } from '@aws-amplify/backend';
 
 /**
  * Define S3 storage resource for knowledge base documents
+ * 
+ * Note: Access rules removed to prevent circular dependency with auth resources.
+ * Permissions will be granted explicitly in backend.ts using CDK grant methods.
+ * 
  * Features:
  * - Encryption at rest (configured in backend.ts)
  * - Versioning enabled (configured in backend.ts)
@@ -10,9 +14,5 @@ import { defineStorage } from '@aws-amplify/backend';
  */
 export const storage = defineStorage({
   name: 'knowledgeBase',
-  access: (allow) => ({
-    'knowledge-base/*': [
-      allow.authenticated.to(['read']),
-    ],
-  }),
+  // NO access rules - prevents auth dependency
 });

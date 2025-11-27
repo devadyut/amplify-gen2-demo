@@ -239,6 +239,40 @@ async function generateResponse(prompt, logger) {
 }
 
 /**
+ * Validate Cognito identity from request context
+ */
+function validateCognitoIdentity(event, logger) {
+  // Validate Cognito identity from request context (for IAM-authorized API Gateway)
+  const cognitoIdentity = event.requestContext?.identity?.cognitoIdentityId;
+  const cognitoAuthProvider = event.requestContext?.identity?.cognitoAuthenticationProvider;
+  
+  // Extract sub from cognitoAuthenticationProvider
+  // Format: cognito-idp.{region}.amazonaws.com/{userPoolId},{sub}
+  let sub = null;
+  if (cognitoAuthProvider) {
+    const parts = cognitoAuthProvider.split(':');
+    if (parts.length > 0) {
+      sub = parts[parts.length - 1];
+    }
+  }
+  
+  if (!cognitoIdentity || !sub) {
+    logger.warn('Missing Cognito identity or sub in request context', {
+      hasCognitoIdentity: !!cognitoIdentity,
+      hasSub: !!sub,
+    });
+    throw new Error('Valid Cognito identity required');
+  }
+  
+  logger.info('Cognito identity validated', { 
+    cognitoIdentityId: cognitoIdentity,
+    sub: sub 
+  });
+  
+  return { cognitoIdentityId: cognitoIdentity, sub };
+}
+
+/**
  * Main Lambda handler
  */
 export const handler = async (event) => {
@@ -253,18 +287,19 @@ export const handler = async (event) => {
   const startTime = Date.now();
   
   try {
-    // 1. Extract and validate JWT token
+    // 1. Validate Cognito identity from request context
+    const identity = validateCognitoIdentity(event, logger);
+    logger.addContext({ userId: identity.sub, cognitoIdentityId: identity.cognitoIdentityId });
+    
+    // 2. Extract and validate JWT token (for additional claims like role)
     const token = extractToken(event);
     const claims = await validateToken(token, logger);
     
-    // Add user context to logger
-    logger.addContext({ userId: claims.sub, username: claims.username });
-    
-    // 2. Validate user role
+    // 3. Validate user role
     const userRole = validateRole(claims, logger);
     logger.info('User authenticated successfully', { role: userRole });
     
-    // 3. Parse request body
+    // 4. Parse request body
     let requestBody;
     try {
       requestBody = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
@@ -309,14 +344,14 @@ export const handler = async (event) => {
       conversationId 
     });
     
-    // 4. Retrieve knowledge base documents from S3
+    // 5. Retrieve knowledge base documents from S3
     const documents = await retrieveKnowledgeBase(logger);
     
-    // 5. Construct prompt with context
+    // 6. Construct prompt with context
     const prompt = constructPrompt(question, documents);
     logger.debug('Prompt constructed', { promptLength: prompt.length });
     
-    // 6. Call Bedrock to generate response
+    // 7. Call Bedrock to generate response
     const answer = await generateResponse(prompt, logger);
     
     const duration = Date.now() - startTime;
@@ -326,7 +361,7 @@ export const handler = async (event) => {
       documentsUsed: documents.length 
     });
     
-    // 7. Return formatted response
+    // 8. Return formatted response
     return {
       statusCode: 200,
       headers: {
@@ -349,7 +384,7 @@ export const handler = async (event) => {
     logger.error('Error processing chatbot request', error, { duration });
     
     // Handle specific error types
-    if (error.message.includes('token') || error.message.includes('authorization')) {
+    if (error.message.includes('token') || error.message.includes('authorization') || error.message.includes('Cognito identity')) {
       return {
         statusCode: 401,
         headers: {

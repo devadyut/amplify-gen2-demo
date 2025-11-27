@@ -2,20 +2,19 @@ import { Stack, Duration } from 'aws-cdk-lib';
 import { 
   RestApi, 
   LambdaIntegration, 
-  CognitoUserPoolsAuthorizer,
-  Cors,
   AuthorizationType,
-  ThrottleSettings,
   MethodLoggingLevel,
   EndpointType,
-  RequestValidator,
 } from 'aws-cdk-lib/aws-apigateway';
 import { IUserPool } from 'aws-cdk-lib/aws-cognito';
 import { IFunction } from 'aws-cdk-lib/aws-lambda';
 
 /**
- * Define API Gateway REST API with Cognito authorization
+ * Define API Gateway REST API with IAM authorization
  * Provides endpoints for chatbot and admin operations
+ * 
+ * Uses IAM authorization to avoid circular dependencies between CloudFormation stacks.
+ * Authenticated users will use AWS SigV4 signing to invoke API endpoints.
  */
 export function createRestApi(
   stack: Stack,
@@ -43,8 +42,8 @@ export function createRestApi(
   
   // Create REST API with CORS configuration
   const api: RestApi = new RestApi(stack, 'ChatbotRestApi', {
-    restApiName: 'Chatbot REST API',
-    description: 'REST API for chatbot and admin operations with Cognito authorization',
+    restApiName: 'ChatbotRestAPI',
+    description: 'REST API for chatbot and admin operations with IAM authorization',
     endpointTypes: [EndpointType.REGIONAL],
     deployOptions: {
       stageName: environment,
@@ -78,29 +77,6 @@ export function createRestApi(
     cloudWatchRole: true, // Enable CloudWatch logging
   });
 
-  // Create Cognito authorizer
-  // Note: CognitoUserPoolsAuthorizer validates both ID tokens and access tokens
-  // ID tokens contain user attributes like custom:role
-  const authorizer = new CognitoUserPoolsAuthorizer(stack, 'CognitoAuthorizer', {
-    cognitoUserPools: [userPool],
-    authorizerName: 'CognitoUserPoolAuthorizer',
-    identitySource: 'method.request.header.Authorization',
-    resultsCacheTtl: Duration.minutes(0), // Disable caching for testing
-  });
-
-  // Create request validators
-  const bodyAndParamsValidator = new RequestValidator(stack, 'BodyAndParamsValidator', {
-    restApi: api,
-    validateRequestBody: true,
-    validateRequestParameters: true,
-  });
-
-  const paramsOnlyValidator = new RequestValidator(stack, 'ParamsOnlyValidator', {
-    restApi: api,
-    validateRequestBody: false,
-    validateRequestParameters: true,
-  });
-
   // Create Lambda integrations
   const chatbotIntegration = new LambdaIntegration(chatbotFunction, {
     proxy: true,
@@ -112,17 +88,11 @@ export function createRestApi(
     allowTestInvoke: true,
   });
 
-  // Define chatbot routes
+  // Define chatbot resource and POST method with IAM authorization
   const chatbotResource = api.root.addResource('chatbot');
-  const chatbotAskResource = chatbotResource.addResource('ask');
   
-  chatbotAskResource.addMethod('POST', chatbotIntegration, {
-    authorizationType: AuthorizationType.COGNITO,
-    authorizer: authorizer,
-    requestParameters: {
-      'method.request.header.Authorization': true,
-    },
-    requestValidator: bodyAndParamsValidator,
+  chatbotResource.addMethod('POST', chatbotIntegration, {
+    authorizationType: AuthorizationType.IAM,
     methodResponses: [
       {
         statusCode: '200',
@@ -152,56 +122,11 @@ export function createRestApi(
     ],
   });
 
-  // Define admin routes
+  // Define admin resource and GET method with IAM authorization
   const adminResource = api.root.addResource('admin');
-  const adminStatsResource = adminResource.addResource('stats');
   
-  adminStatsResource.addMethod('GET', adminIntegration, {
-    authorizationType: AuthorizationType.COGNITO,
-    authorizer: authorizer,
-    requestParameters: {
-      'method.request.header.Authorization': true,
-    },
-    requestValidator: paramsOnlyValidator,
-    methodResponses: [
-      {
-        statusCode: '200',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Origin': true,
-          'method.response.header.Access-Control-Allow-Credentials': true,
-        },
-      },
-      {
-        statusCode: '401',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Origin': true,
-        },
-      },
-      {
-        statusCode: '403',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Origin': true,
-        },
-      },
-      {
-        statusCode: '500',
-        responseParameters: {
-          'method.response.header.Access-Control-Allow-Origin': true,
-        },
-      },
-    ],
-  });
-
-  // Additional admin route for user management (example)
-  const adminUsersResource = adminResource.addResource('users');
-  
-  adminUsersResource.addMethod('GET', adminIntegration, {
-    authorizationType: AuthorizationType.COGNITO,
-    authorizer: authorizer,
-    requestParameters: {
-      'method.request.header.Authorization': true,
-    },
-    requestValidator: paramsOnlyValidator,
+  adminResource.addMethod('GET', adminIntegration, {
+    authorizationType: AuthorizationType.IAM,
     methodResponses: [
       {
         statusCode: '200',
