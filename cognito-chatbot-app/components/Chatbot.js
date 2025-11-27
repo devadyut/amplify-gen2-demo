@@ -43,18 +43,10 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      // Get the current auth session to retrieve the ID token
-      const session = await fetchAuthSession();
-      const idToken = session.tokens?.idToken?.toString();
-
-      if (!idToken) {
-        throw new Error('No authentication token available');
-      }
-
       // Call API using Amplify REST API client
       const restOperation = post({
         apiName: 'ChatbotRestAPI',
-        path: '/chatbot',
+        path: 'chatbot',
         options: {
           headers: {
             'Accept': 'application/json',

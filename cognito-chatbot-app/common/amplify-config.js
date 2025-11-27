@@ -13,8 +13,8 @@ import outputs from '../amplify_outputs.json';
  * Following official Amplify Gen 2 configuration pattern
  */
 export function configureAmplifyClient() {
-  const { ['API']: amplifyApiConfig, ...restOfAmplifyConfig } = parseAmplifyConfig(outputs);
-
+  const {['API']: amplifyApiConfig, ...restOfAmplifyConfig} = parseAmplifyConfig(outputs);
+  
   Amplify.configure(
     {
       ...restOfAmplifyConfig,

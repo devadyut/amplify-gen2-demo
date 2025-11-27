@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { signOutUser } from '../common/auth-client';
 import { get } from 'aws-amplify/api';
@@ -29,7 +30,13 @@ export default function AdminPage({ user }) {
       // Call admin API using Amplify REST API client
       const restOperation = get({
         apiName: 'ChatbotRestAPI',
-        path: '/admin',
+        path: 'admin',
+        options: {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          }
+        }
       });
 
       const { body } = await restOperation.response;
@@ -62,7 +69,7 @@ export default function AdminPage({ user }) {
     try {
       const result = await signOutUser();
       if (result.success) {
-        router.push('/login');
+        await router.push('/login');
       } else {
         console.error('Logout failed:', result.error);
         setIsLoggingOut(false);
@@ -79,9 +86,9 @@ export default function AdminPage({ user }) {
         <div className="admin-header-content">
           <h1 className="admin-title">Admin Dashboard</h1>
           <nav className="admin-nav">
-            <a href="/user" className="admin-nav-link">
+            <Link href="/user" as="/user" className="admin-nav-link">
               User Page
-            </a>
+            </Link>
             <button 
               onClick={handleLogout} 
               className="admin-logout-button"
@@ -193,7 +200,7 @@ export async function getServerSideProps(context) {
       email: claims.email,
       emailVerified: claims.email_verified,
       role: claims['custom:role'],
-      department: claims['custom:department'],
+      //department: claims['custom:department'],
       username: claims['cognito:username'],
     };
     

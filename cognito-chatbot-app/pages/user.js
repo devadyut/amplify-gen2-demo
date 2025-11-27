@@ -6,8 +6,9 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { signOutUser } from '../common/auth-client';
+import { signOutUser } from '@/common/auth-client';
 import Chatbot from '../components/Chatbot';
 
 export default function UserPage({ user }) {
@@ -23,7 +24,7 @@ export default function UserPage({ user }) {
     try {
       const result = await signOutUser();
       if (result.success) {
-        router.push('/login');
+        await router.push('/login');
       } else {
         console.error('Logout failed:', result.error);
         setIsLoggingOut(false);
@@ -41,9 +42,9 @@ export default function UserPage({ user }) {
           <h1 className="user-title">Welcome, {user.email}</h1>
           <nav className="user-nav">
             {user.role === 'admin' && (
-              <a href="/admin" className="user-nav-link">
+              <Link href="/admin"  as="/admin" className="user-nav-link">
                 Admin Dashboard
-              </a>
+              </Link>
             )}
             <button 
               onClick={handleLogout} 
