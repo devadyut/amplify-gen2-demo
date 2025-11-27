@@ -142,7 +142,7 @@ export function middleware(request) {
     return NextResponse.redirect(unauthorizedUrl);
   }
 
-  // Add user role to request headers for use in server components
+  // Add user role to request headers for use in getServerSideProps
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-user-role', userRole);
 

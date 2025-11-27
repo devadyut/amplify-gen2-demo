@@ -7,9 +7,7 @@
  */
 
 import { useState } from 'react';
-import { fetchAuthSession } from 'aws-amplify/auth';
-import outputs from '../amplify_outputs.json';
-import styles from './Chatbot.module.css';
+import { post } from 'aws-amplify/api';
 
 export default function Chatbot() {
   const [messages, setMessages] = useState([]);
@@ -45,33 +43,32 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      // Get auth session and token
+      // Get the current auth session to retrieve the ID token
       const session = await fetchAuthSession();
       const idToken = session.tokens?.idToken?.toString();
-      
+
       if (!idToken) {
-        throw new Error('Not authenticated');
+        throw new Error('No authentication token available');
       }
 
-      // Call API Gateway directly with fetch
-      const apiEndpoint = outputs.custom?.API?.endpoint;
-      const response = await fetch(`${apiEndpoint}chatbot/ask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
+      // Call API using Amplify REST API client
+      const restOperation = post({
+        apiName: 'ChatbotRestAPI',
+        path: '/chatbot',
+        options: {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: {
+            question: userMessage.content,
+            conversationId,
+          },
         },
-        body: JSON.stringify({
-          question: userMessage.content,
-          conversationId,
-        }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const { body } = await restOperation.response;
+      const data = await body.json();
 
       // Update conversation ID
       if (data.conversationId) {
@@ -131,36 +128,36 @@ export default function Chatbot() {
   };
 
   return (
-    <div className={styles.chatbot}>
-      <div className={styles.messagesContainer}>
+    <div className="chatbot">
+      <div className="messagesContainer">
         {messages.length === 0 ? (
-          <div className={styles.emptyState}>
+          <div className="emptyState">
             <p>👋 Hi! I'm your AI assistant.</p>
             <p>Ask me anything and I'll help you find answers from our knowledge base.</p>
           </div>
         ) : (
-          <div className={styles.messages}>
+          <div className="messages">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`${styles.message} ${styles[message.type]}`}
+                className={`message ${message.type}`}
               >
-                <div className={styles.messageHeader}>
-                  <span className={styles.messageLabel}>
+                <div className="messageHeader">
+                  <span className="messageLabel">
                     {message.type === 'user' ? 'You' : message.type === 'ai' ? 'AI Assistant' : 'Error'}
                   </span>
-                  <span className={styles.messageTime}>
+                  <span className="messageTime">
                     {new Date(message.timestamp).toLocaleTimeString()}
                   </span>
                 </div>
-                <div className={styles.messageContent}>
+                <div className="messageContent">
                   {message.content}
                 </div>
                 {message.sources && message.sources.length > 0 && (
-                  <div className={styles.sources}>
-                    <span className={styles.sourcesLabel}>Sources:</span>
+                  <div className="sources">
+                    <span className="sourcesLabel">Sources:</span>
                     {message.sources.map((source, index) => (
-                      <span key={index} className={styles.source}>
+                      <span key={index} className="source">
                         {source.documentName}
                       </span>
                     ))}
@@ -170,17 +167,17 @@ export default function Chatbot() {
             ))}
 
             {isLoading && (
-              <div className={`${styles.message} ${styles.ai} ${styles.loading}`}>
-                <div className={styles.messageHeader}>
-                  <span className={styles.messageLabel}>AI Assistant</span>
+              <div className="message ai loading">
+                <div className="messageHeader">
+                  <span className="messageLabel">AI Assistant</span>
                 </div>
-                <div className={styles.messageContent}>
-                  <div className={styles.loadingDots}>
+                <div className="messageContent">
+                  <div className="loadingDots">
                     <span></span>
                     <span></span>
                     <span></span>
                   </div>
-                  <span className={styles.loadingText}>Thinking...</span>
+                  <span className="loadingText">Thinking...</span>
                 </div>
               </div>
             )}
@@ -189,26 +186,26 @@ export default function Chatbot() {
       </div>
 
       {error && (
-        <div className={styles.errorBanner}>
-          <span className={styles.errorIcon}>⚠️</span>
-          <span className={styles.errorText}>{error}</span>
+        <div className="errorBanner">
+          <span className="errorIcon">⚠️</span>
+          <span className="errorText">{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className={styles.inputForm}>
-        <div className={styles.inputContainer}>
+      <form onSubmit={handleSubmit} className="inputForm">
+        <div className="inputContainer">
           <input
             type="text"
             value={question}
             onChange={handleInputChange}
             placeholder="Ask a question..."
-            className={styles.input}
+            className="input"
             disabled={isLoading}
             maxLength={500}
           />
           <button
             type="submit"
-            className={styles.submitButton}
+            className="submitButton"
             disabled={isLoading || !question.trim()}
           >
             {isLoading ? 'Sending...' : 'Send'}
@@ -218,7 +215,7 @@ export default function Chatbot() {
           <button
             type="button"
             onClick={handleClearChat}
-            className={styles.clearButton}
+            className="clearButton"
             disabled={isLoading}
           >
             Clear Chat

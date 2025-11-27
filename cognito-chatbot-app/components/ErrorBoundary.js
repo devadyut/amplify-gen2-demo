@@ -8,7 +8,6 @@
  */
 
 import React from 'react';
-import styles from './ErrorBoundary.module.css';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -53,18 +52,18 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       // Render fallback UI
       return (
-        <div className={styles.errorBoundary}>
-          <div className={styles.errorContainer}>
-            <div className={styles.errorIcon}>⚠️</div>
-            <h1 className={styles.errorTitle}>Oops! Something went wrong</h1>
-            <p className={styles.errorMessage}>
+        <div className="errorBoundary">
+          <div className="errorContainer">
+            <div className="errorIcon">⚠️</div>
+            <h1 className="errorTitle">Oops! Something went wrong</h1>
+            <p className="errorMessage">
               We're sorry, but something unexpected happened. Please try again.
             </p>
             
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className={styles.errorDetails}>
+              <details className="errorDetails">
                 <summary>Error Details (Development Only)</summary>
-                <pre className={styles.errorStack}>
+                <pre className="errorStack">
                   <strong>Error:</strong> {this.state.error.toString()}
                   {this.state.errorInfo && (
                     <>
@@ -77,16 +76,16 @@ class ErrorBoundary extends React.Component {
               </details>
             )}
             
-            <div className={styles.errorActions}>
+            <div className="errorActions">
               <button 
                 onClick={this.handleReset}
-                className={styles.retryButton}
+                className="retryButton"
               >
                 Try Again
               </button>
               <a 
                 href="/"
-                className={styles.homeButton}
+                className="homeButton"
               >
                 Go to Home
               </a>

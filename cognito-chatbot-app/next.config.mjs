@@ -7,9 +7,11 @@ const isStaging = amplifyEnv === 'staging';
 const isDevelopment = amplifyEnv === 'dev';
 
 const nextConfig = {
-  /* config options here */
+  // Pages Router configuration
+  // Using traditional pages/ directory structure with getServerSideProps
   
   // Environment-specific configuration
+  // These variables are available at build time and runtime
   env: {
     AMPLIFY_ENV: amplifyEnv,
     IS_PRODUCTION: isProduction.toString(),
@@ -41,9 +43,9 @@ const nextConfig = {
     } : false,
   },
   
-  // Experimental features
+  // Experimental features for Pages Router
   experimental: {
-    // Enable optimized package imports
+    // Enable optimized package imports for Amplify
     optimizePackageImports: ['aws-amplify'],
   },
   

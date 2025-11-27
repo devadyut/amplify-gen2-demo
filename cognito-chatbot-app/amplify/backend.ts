@@ -128,6 +128,15 @@ chatbotLambda.addToRolePolicy(
 );
 console.log('Granted Bedrock invoke permissions to chatbot Lambda');
 
+// Grant Cognito permissions to chatbot Lambda to get user attributes
+chatbotLambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: ['cognito-idp:AdminGetUser'],
+    resources: [backend.auth.resources.userPool.userPoolArn],
+  })
+);
+console.log('Granted Cognito AdminGetUser permission to chatbot Lambda');
+
 // Grant Cognito permissions to admin Lambda
 adminLambda.addToRolePolicy(
   new PolicyStatement({

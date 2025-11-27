@@ -5,11 +5,12 @@
 
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { CognitoJwtVerifier } from 'aws-jwt-verify';
-import { createLogger } from '../shared/logger.js';
+import { CognitoIdentityProviderClient, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { createLogger } from './logger.js';
 
 // Initialize AWS clients
 const s3Client = new S3Client({});
+const cognitoClient = new CognitoIdentityProviderClient({});
 // Use BEDROCK_REGION for Bedrock client, AWS_REGION is automatically set by Lambda runtime
 const bedrockClient = new BedrockRuntimeClient({ region: process.env.BEDROCK_REGION || process.env.AWS_REGION || 'eu-west-1' });
 
@@ -17,82 +18,50 @@ const bedrockClient = new BedrockRuntimeClient({ region: process.env.BEDROCK_REG
 const BUCKET_NAME = process.env.KNOWLEDGE_BASE_BUCKET;
 const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-sonnet-20240229-v1:0';
 const USER_POOL_ID = process.env.USER_POOL_ID;
-const CLIENT_ID = process.env.CLIENT_ID;
-
-// Initialize JWT verifier for ID tokens (contains custom:role)
-let jwtVerifier;
-if (USER_POOL_ID && CLIENT_ID) {
-  jwtVerifier = CognitoJwtVerifier.create({
-    userPoolId: USER_POOL_ID,
-    tokenUse: 'id', // Changed from 'access' to 'id' to accept ID tokens
-    clientId: CLIENT_ID,
-  });
-}
 
 /**
- * Extract JWT token from event
+ * Get user attributes from Cognito
  */
-function extractToken(event) {
-  // Check Authorization header
-  const authHeader = event.headers?.Authorization || event.headers?.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
-  
-  // Check for token in query parameters (fallback)
-  if (event.queryStringParameters?.token) {
-    return event.queryStringParameters.token;
-  }
-  
-  throw new Error('No authorization token found');
-}
-
-/**
- * Validate JWT token and extract claims
- */
-async function validateToken(token, logger) {
+async function getUserFromCognito(username, logger) {
   try {
-    if (!jwtVerifier) {
-      throw new Error('JWT verifier not initialized');
-    }
-    
-    logger.debug('Validating JWT token');
-    const payload = await jwtVerifier.verify(token);
-    logger.info('Token validated successfully', { userId: payload.sub });
-    return payload;
-  } catch (error) {
-    logger.error('Token validation failed', error);
-    throw new Error('Invalid or expired token');
-  }
-}
+    logger.logServiceCall('Cognito', 'AdminGetUser', { username });
 
-/**
- * Validate user role from custom attributes
- */
-function validateRole(claims, logger) {
-  const userRole = claims['custom:role'];
-  
-  if (!userRole) {
-    logger.warn('User role not found in token', { userId: claims.sub });
-    throw new Error('User role not found in token');
-  }
-  
-  // Allow both 'user' and 'admin' roles to access chatbot
-  if (userRole !== 'user' && userRole !== 'admin') {
-    logger.logAuthDecision('DENIED', { 
-      userId: claims.sub, 
-      role: userRole, 
-      reason: 'Invalid role for chatbot access' 
+    const command = new AdminGetUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
     });
-    throw new Error('Invalid user role');
+
+    const response = await cognitoClient.send(command);
+
+    // Extract custom:role from user attributes
+    const roleAttribute = response.UserAttributes?.find(attr => attr.Name === 'custom:role');
+    const role = roleAttribute?.Value;
+
+    if (!role) {
+      logger.warn('User role not found in Cognito attributes', { username });
+      throw new Error('User role not found');
+    }
+
+    // Allow both 'user' and 'admin' roles to access chatbot
+    if (role !== 'user' && role !== 'admin') {
+      logger.logAuthDecision('DENIED', {
+        username,
+        role,
+        reason: 'Invalid role for chatbot access'
+      });
+      throw new Error('Invalid user role');
+    }
+
+    logger.logAuthDecision('GRANTED', {
+      username,
+      role
+    });
+
+    return { role, username };
+  } catch (error) {
+    logger.error('Failed to get user from Cognito', error, { username });
+    throw error;
   }
-  
-  logger.logAuthDecision('GRANTED', { 
-    userId: claims.sub, 
-    role: userRole 
-  });
-  
-  return userRole;
 }
 
 /**
@@ -101,53 +70,53 @@ function validateRole(claims, logger) {
 async function retrieveKnowledgeBase(logger) {
   try {
     logger.logServiceCall('S3', 'ListObjectsV2', { bucket: BUCKET_NAME, prefix: 'knowledge-base/' });
-    
+
     const documents = [];
-    
+
     // List all objects in the knowledge-base folder
     const listCommand = new ListObjectsV2Command({
       Bucket: BUCKET_NAME,
       Prefix: 'knowledge-base/',
     });
-    
+
     const listResponse = await s3Client.send(listCommand);
-    
+
     if (!listResponse.Contents || listResponse.Contents.length === 0) {
       logger.warn('No documents found in knowledge base');
       return [];
     }
-    
+
     logger.info('Found documents in knowledge base', { count: listResponse.Contents.length });
-    
+
     // Retrieve each document
     for (const object of listResponse.Contents) {
       // Skip the folder itself
       if (object.Key.endsWith('/')) {
         continue;
       }
-      
+
       try {
         logger.logServiceCall('S3', 'GetObject', { key: object.Key });
-        
+
         const getCommand = new GetObjectCommand({
           Bucket: BUCKET_NAME,
           Key: object.Key,
         });
-        
+
         const response = await s3Client.send(getCommand);
         const documentContent = await streamToString(response.Body);
-        
+
         // Parse JSON document
         const document = JSON.parse(documentContent);
         documents.push(document);
-        
+
         logger.debug('Retrieved document', { documentId: document.documentId, title: document.title });
       } catch (error) {
         logger.error(`Error retrieving document ${object.Key}`, error);
         // Continue with other documents
       }
     }
-    
+
     logger.info('Successfully retrieved knowledge base documents', { count: documents.length });
     return documents;
   } catch (error) {
@@ -173,22 +142,22 @@ async function streamToString(stream) {
  */
 function constructPrompt(question, documents) {
   let context = '';
-  
+
   if (documents.length > 0) {
     context = 'Here is relevant information from the knowledge base:\n\n';
-    
+
     documents.forEach((doc, index) => {
       context += `Document ${index + 1}: ${doc.title}\n`;
       context += `${doc.content}\n\n`;
     });
   }
-  
+
   const prompt = `${context}Based on the information provided above, please answer the following question. If the answer is not in the provided context, you can use your general knowledge but indicate that the information is not from the knowledge base.
 
 Question: ${question}
 
 Answer:`;
-  
+
   return prompt;
 }
 
@@ -198,7 +167,7 @@ Answer:`;
 async function generateResponse(prompt, logger) {
   try {
     logger.logServiceCall('Bedrock', 'InvokeModel', { modelId: BEDROCK_MODEL_ID });
-    
+
     const requestBody = {
       anthropic_version: 'bedrock-2023-05-31',
       max_tokens: 1000,
@@ -210,27 +179,27 @@ async function generateResponse(prompt, logger) {
         },
       ],
     };
-    
+
     const command = new InvokeModelCommand({
       modelId: BEDROCK_MODEL_ID,
       contentType: 'application/json',
       accept: 'application/json',
       body: JSON.stringify(requestBody),
     });
-    
+
     const startTime = Date.now();
     const response = await bedrockClient.send(command);
     const duration = Date.now() - startTime;
-    
+
     logger.info('Bedrock response received', { duration, modelId: BEDROCK_MODEL_ID });
-    
+
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    
+
     // Extract the generated text from Claude's response
     if (responseBody.content && responseBody.content.length > 0) {
       return responseBody.content[0].text;
     }
-    
+
     throw new Error('No content in Bedrock response');
   } catch (error) {
     logger.error('Bedrock API error', error, { modelId: BEDROCK_MODEL_ID });
@@ -245,7 +214,7 @@ function validateCognitoIdentity(event, logger) {
   // Validate Cognito identity from request context (for IAM-authorized API Gateway)
   const cognitoIdentity = event.requestContext?.identity?.cognitoIdentityId;
   const cognitoAuthProvider = event.requestContext?.identity?.cognitoAuthenticationProvider;
-  
+
   // Extract sub from cognitoAuthenticationProvider
   // Format: cognito-idp.{region}.amazonaws.com/{userPoolId},{sub}
   let sub = null;
@@ -255,7 +224,7 @@ function validateCognitoIdentity(event, logger) {
       sub = parts[parts.length - 1];
     }
   }
-  
+
   if (!cognitoIdentity || !sub) {
     logger.warn('Missing Cognito identity or sub in request context', {
       hasCognitoIdentity: !!cognitoIdentity,
@@ -263,12 +232,12 @@ function validateCognitoIdentity(event, logger) {
     });
     throw new Error('Valid Cognito identity required');
   }
-  
-  logger.info('Cognito identity validated', { 
+
+  logger.info('Cognito identity validated', {
     cognitoIdentityId: cognitoIdentity,
-    sub: sub 
+    sub: sub
   });
-  
+
   return { cognitoIdentityId: cognitoIdentity, sub };
 }
 
@@ -278,27 +247,23 @@ function validateCognitoIdentity(event, logger) {
 export const handler = async (event) => {
   const requestId = event.requestContext?.requestId || `req-${Date.now()}`;
   const logger = createLogger({ requestId, function: 'chatbot' });
-  
-  logger.info('Chatbot Lambda invoked', { 
+
+  logger.info('Chatbot Lambda invoked', {
     path: event.path || event.rawPath,
-    httpMethod: event.httpMethod || event.requestContext?.http?.method 
+    httpMethod: event.httpMethod || event.requestContext?.http?.method
   });
-  
+
   const startTime = Date.now();
-  
+
   try {
     // 1. Validate Cognito identity from request context
     const identity = validateCognitoIdentity(event, logger);
     logger.addContext({ userId: identity.sub, cognitoIdentityId: identity.cognitoIdentityId });
-    
-    // 2. Extract and validate JWT token (for additional claims like role)
-    const token = extractToken(event);
-    const claims = await validateToken(token, logger);
-    
-    // 3. Validate user role
-    const userRole = validateRole(claims, logger);
-    logger.info('User authenticated successfully', { role: userRole });
-    
+
+    // 2. Get user attributes from Cognito to validate role
+    const user = await getUserFromCognito(identity.sub, logger);
+    logger.info('User authenticated successfully', { role: user.role });
+
     // 4. Parse request body
     let requestBody;
     try {
@@ -319,9 +284,9 @@ export const handler = async (event) => {
         }),
       };
     }
-    
+
     const { question, conversationId } = requestBody;
-    
+
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
       logger.warn('Invalid question provided');
       return {
@@ -338,29 +303,29 @@ export const handler = async (event) => {
         }),
       };
     }
-    
-    logger.info('Processing question', { 
-      questionLength: question.length, 
-      conversationId 
+
+    logger.info('Processing question', {
+      questionLength: question.length,
+      conversationId
     });
-    
+
     // 5. Retrieve knowledge base documents from S3
     const documents = await retrieveKnowledgeBase(logger);
-    
+
     // 6. Construct prompt with context
     const prompt = constructPrompt(question, documents);
     logger.debug('Prompt constructed', { promptLength: prompt.length });
-    
+
     // 7. Call Bedrock to generate response
     const answer = await generateResponse(prompt, logger);
-    
+
     const duration = Date.now() - startTime;
-    logger.info('Request completed successfully', { 
-      duration, 
+    logger.info('Request completed successfully', {
+      duration,
       answerLength: answer.length,
-      documentsUsed: documents.length 
+      documentsUsed: documents.length
     });
-    
+
     // 8. Return formatted response
     return {
       statusCode: 200,
@@ -378,11 +343,11 @@ export const handler = async (event) => {
         timestamp: new Date().toISOString(),
       }),
     };
-    
+
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.error('Error processing chatbot request', error, { duration });
-    
+
     // Handle specific error types
     if (error.message.includes('token') || error.message.includes('authorization') || error.message.includes('Cognito identity')) {
       return {
@@ -399,7 +364,7 @@ export const handler = async (event) => {
         }),
       };
     }
-    
+
     if (error.message.includes('role')) {
       return {
         statusCode: 403,
@@ -415,7 +380,7 @@ export const handler = async (event) => {
         }),
       };
     }
-    
+
     if (error.message.includes('Bedrock') || error.message.includes('generate response')) {
       return {
         statusCode: 503,
@@ -431,7 +396,7 @@ export const handler = async (event) => {
         }),
       };
     }
-    
+
     // Generic error response
     return {
       statusCode: 500,

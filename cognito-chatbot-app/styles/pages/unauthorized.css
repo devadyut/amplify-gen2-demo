@@ -1,0 +1,219 @@
+.unauthorizedPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.unauthorizedPage .container {
+  max-width: 600px;
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.unauthorizedPage .iconContainer {
+  margin-bottom: 1.5rem;
+}
+
+.unauthorizedPage .lockIcon {
+  font-size: 5rem;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+}
+
+.unauthorizedPage .title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.unauthorizedPage .statusCode {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e53e3e;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 1rem;
+  background: #fed7d7;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.unauthorizedPage .message {
+  font-size: 1.125rem;
+  color: #4a5568;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.unauthorizedPage .details {
+  text-align: left;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: #f7fafc;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  max-width: 500px;
+}
+
+.unauthorizedPage .details p {
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.75rem;
+}
+
+.unauthorizedPage .details ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.unauthorizedPage .details li {
+  padding: 0.5rem 0;
+  color: #4a5568;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.unauthorizedPage .details li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.unauthorizedPage .actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.unauthorizedPage .logoutButton,
+.unauthorizedPage .loginButton,
+.unauthorizedPage .homeButton {
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  border: none;
+}
+
+.unauthorizedPage .logoutButton {
+  background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(245, 101, 101, 0.4);
+}
+
+.unauthorizedPage .logoutButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 101, 101, 0.6);
+}
+
+.unauthorizedPage .logoutButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.unauthorizedPage .loginButton {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.unauthorizedPage .loginButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.unauthorizedPage .homeButton {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.unauthorizedPage .homeButton:hover {
+  background: #f7fafc;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.unauthorizedPage .helpText {
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.unauthorizedPage .helpText p {
+  font-size: 0.875rem;
+  color: #718096;
+  margin: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .unauthorizedPage .container {
+    padding: 2rem 1.5rem;
+  }
+
+  .unauthorizedPage .title {
+    font-size: 2rem;
+  }
+
+  .unauthorizedPage .lockIcon {
+    font-size: 4rem;
+  }
+
+  .unauthorizedPage .message {
+    font-size: 1rem;
+  }
+
+  .unauthorizedPage .actions {
+    flex-direction: column;
+  }
+
+  .unauthorizedPage .logoutButton,
+  .unauthorizedPage .loginButton,
+  .unauthorizedPage .homeButton {
+    width: 100%;
+  }
+
+  .unauthorizedPage .details {
+    padding: 1rem;
+  }
+}

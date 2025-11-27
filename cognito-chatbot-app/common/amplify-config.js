@@ -4,28 +4,29 @@
  */
 
 import { Amplify } from 'aws-amplify';
+import { parseAmplifyConfig } from 'aws-amplify/utils';
 import outputs from '../amplify_outputs.json';
 
 /**
  * Configure Amplify for client-side components
  * This should be called in client components or the root layout
+ * Following official Amplify Gen 2 configuration pattern
  */
 export function configureAmplifyClient() {
-  const config = {
-    ...outputs,
-    API: {
-      REST: {
-        chatbotApi: {
-          endpoint: outputs.custom?.API?.endpoint,
-          region: outputs.custom?.API?.region || outputs.auth.aws_region,
-        },
+  const { ['API']: amplifyApiConfig, ...restOfAmplifyConfig } = parseAmplifyConfig(outputs);
+
+  Amplify.configure(
+    {
+      ...restOfAmplifyConfig,
+      API: {
+        ...amplifyApiConfig,
+        REST: outputs.custom.API, // Required for custom REST APIs
       },
     },
-  };
-  
-  Amplify.configure(config, {
-    ssr: true, // Enable SSR mode for Next.js
-  });
+    {
+      ssr: true, // Enable SSR mode for Next.js
+    }
+  );
 }
 
 /**

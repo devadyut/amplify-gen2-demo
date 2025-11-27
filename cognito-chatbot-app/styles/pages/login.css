@@ -1,0 +1,105 @@
+/* Login page container */
+.loginContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--background) 0%, var(--card-bg) 100%);
+}
+
+/* Login card */
+.loginCard {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+/* Login header */
+.loginHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.loginHeader h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--foreground);
+}
+
+.loginHeader p {
+  color: var(--secondary);
+  font-size: 0.9375rem;
+}
+
+/* Login form */
+.loginForm {
+  margin-bottom: 1.5rem;
+}
+
+/* Loading text with spinner */
+.loadingText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Login footer */
+.loginFooter {
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.helpText {
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .loginContainer {
+    padding: 1rem;
+  }
+  
+  .loginCard {
+    padding: 1.5rem;
+  }
+  
+  .loginHeader h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Signup link */
+.signupLink {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.signupLink:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}

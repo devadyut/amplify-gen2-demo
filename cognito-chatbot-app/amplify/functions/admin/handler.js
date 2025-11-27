@@ -3,91 +3,58 @@
  * Handles admin-specific operations with role-based access control
  */
 
-import { CognitoJwtVerifier } from 'aws-jwt-verify';
-import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { createLogger } from '../shared/logger.js';
+import { CognitoIdentityProviderClient, ListUsersCommand, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { createLogger } from './logger.js';
 
 // Initialize AWS clients
 const cognitoClient = new CognitoIdentityProviderClient({});
 
 // Environment variables
 const USER_POOL_ID = process.env.USER_POOL_ID;
-const CLIENT_ID = process.env.CLIENT_ID;
-
-// Initialize JWT verifier
-let jwtVerifier;
-if (USER_POOL_ID && CLIENT_ID) {
-  jwtVerifier = CognitoJwtVerifier.create({
-    userPoolId: USER_POOL_ID,
-    tokenUse: 'access',
-    clientId: CLIENT_ID,
-  });
-}
 
 /**
- * Extract JWT token from event
+ * Get user from Cognito and validate admin role
  */
-function extractToken(event) {
-  // Check Authorization header
-  const authHeader = event.headers?.Authorization || event.headers?.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
-  
-  // Check for token in query parameters (fallback)
-  if (event.queryStringParameters?.token) {
-    return event.queryStringParameters.token;
-  }
-  
-  throw new Error('No authorization token found');
-}
-
-/**
- * Validate JWT token and extract claims
- */
-async function validateToken(token, logger) {
+async function validateAdminUser(username, logger) {
   try {
-    if (!jwtVerifier) {
-      throw new Error('JWT verifier not initialized');
-    }
-    
-    logger.debug('Validating JWT token');
-    const payload = await jwtVerifier.verify(token);
-    logger.info('Token validated successfully', { userId: payload.sub });
-    return payload;
-  } catch (error) {
-    logger.error('Token validation failed', error);
-    throw new Error('Invalid or expired token');
-  }
-}
+    logger.logServiceCall('Cognito', 'AdminGetUser', { username });
 
-/**
- * Validate admin role from custom attributes
- */
-function validateAdminRole(claims, logger) {
-  const userRole = claims['custom:role'];
-  
-  if (!userRole) {
-    logger.warn('User role not found in token', { userId: claims.sub });
-    throw new Error('User role not found in token');
-  }
-  
-  // Only allow 'admin' role
-  if (userRole !== 'admin') {
-    logger.logAuthDecision('DENIED', { 
-      userId: claims.sub, 
-      role: userRole, 
-      reason: 'Admin role required' 
+    const command = new AdminGetUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
     });
-    throw new Error('Admin role required');
+
+    const response = await cognitoClient.send(command);
+
+    // Extract custom:role from user attributes
+    const roleAttribute = response.UserAttributes?.find(attr => attr.Name === 'custom:role');
+    const role = roleAttribute?.Value;
+
+    if (!role) {
+      logger.warn('User role not found in Cognito attributes', { username });
+      throw new Error('User role not found');
+    }
+
+    // Only allow 'admin' role
+    if (role !== 'admin') {
+      logger.logAuthDecision('DENIED', {
+        username,
+        role,
+        reason: 'Admin role required'
+      });
+      throw new Error('Admin role required');
+    }
+
+    logger.logAuthDecision('GRANTED', {
+      username,
+      role
+    });
+
+    return { role, username };
+  } catch (error) {
+    logger.error('Failed to validate admin user', error, { username });
+    throw error;
   }
-  
-  logger.logAuthDecision('GRANTED', { 
-    userId: claims.sub, 
-    role: userRole 
-  });
-  
-  return userRole;
 }
 
 /**
@@ -194,13 +161,9 @@ export const handler = async (event) => {
     const identity = validateCognitoIdentity(event, logger);
     logger.addContext({ userId: identity.sub, cognitoIdentityId: identity.cognitoIdentityId });
     
-    // 2. Extract and validate JWT token (for additional claims like role)
-    const token = extractToken(event);
-    const claims = await validateToken(token, logger);
-    
-    // 3. Validate admin role
-    const userRole = validateAdminRole(claims, logger);
-    logger.info('Admin authenticated successfully', { role: userRole });
+    // 2. Validate user has admin role
+    const user = await validateAdminUser(identity.sub, logger);
+    logger.info('Admin authenticated successfully', { role: user.role });
     
     // 4. Parse request to determine operation
     const path = event.path || event.rawPath || '';
