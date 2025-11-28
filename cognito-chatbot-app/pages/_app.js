@@ -4,10 +4,22 @@
  * Requirements: 1.2, 8.1, 8.3, 8.4
  */
 
+import React from 'react';
 import Head from 'next/head';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { configureAmplifyClient } from '../common/amplify-config';
+import { configureAmplifyClient } from '@/common/amplify-config';
 import ErrorBoundary from '../components/ErrorBoundary';
+
+// Define fonts - must be at module level
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+});
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
 
 // Import all CSS files in the specified order
 // Global styles
@@ -25,19 +37,8 @@ import '../styles/pages/user.css';
 import '../styles/pages/admin.css';
 import '../styles/pages/unauthorized.css';
 
-// Configure Amplify at module level (before App function declaration)
+// Configure Amplify at module level
 configureAmplifyClient();
-
-// Define fonts before CSS imports
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 /**
  * Custom App component that wraps all pages
@@ -45,7 +46,7 @@ const geistMono = Geist_Mono({
  */
 export default function App({ Component, pageProps }) {
   return (
-    <>
+    <main className={`${geistSans.variable} ${geistMono.variable}`}>
       <Head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -54,10 +55,8 @@ export default function App({ Component, pageProps }) {
         <title>Cognito Chatbot App</title>
       </Head>
       <ErrorBoundary>
-        <div className={`app-container ${geistSans.variable} ${geistMono.variable}`}>
-          <Component {...pageProps} />
-        </div>
+        <Component {...pageProps} />
       </ErrorBoundary>
-    </>
+    </main>
   );
 }
